@@ -7,9 +7,11 @@ import { PasswordInput } from "../../components/ui/PasswordInput";
 import { useAuth } from "../../hooks/useAuth";
 import { AuthShell } from "./AuthShell";
 import { AuthTabs } from "./AuthTabs";
+import { api } from "../../services/api";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const [error, setError] = useState("");
   const [remember, setRemember] = useState(true);
@@ -21,7 +23,32 @@ export function LoginPage() {
     setError("");
   }
 
-  function handleSubmit(event) {
+  // function handleSubmit(event) {
+  //   event.preventDefault();
+
+  //   if (!form.email.trim() || !form.password) {
+  //     setError("Please enter your email and password.");
+  //     return;
+  //   }
+
+  //   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+  //     setError("Please enter a valid email address.");
+  //     return;
+  //   }
+
+  //   signIn({
+  //     id: "student-1",
+  //     name: "Aditya Sharma",
+  //     email: form.email,
+  //     role: "student",
+  //     subtitle: "Computer Science & Eng",
+  //   });
+
+  //   navigate("/student/dashboard");
+  // }
+
+
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (!form.email.trim() || !form.password) {
@@ -29,21 +56,47 @@ export function LoginPage() {
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    const email = form.email.trim().toLowerCase();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("Please enter a valid email address.");
       return;
     }
 
-    signIn({
-      id: "student-1",
-      name: "Aditya Sharma",
-      email: form.email,
-      role: "student",
-      subtitle: "Computer Science & Eng",
-    });
+    setLoading(true);
+    setError("");
 
-    navigate("/student/dashboard");
+    try {
+      const response = await api().post("/auth/login", {
+        email,
+        password: form.password,
+      });
+
+      if (!response?.success || !response?.token || !response?.user?.id) {
+        throw new Error(response?.message || "Invalid login response.");
+      }
+
+      // Pass the real backend user and token to the auth context.
+      signIn({
+        ...response.user,
+        role: String(response.user.role || "STUDENT").toLowerCase(),
+        subtitle: "Computer Science & Eng",
+        token: response.token,
+      });
+
+      const role = String(response.user.role || "STUDENT").toLowerCase();
+
+      navigate(
+        role === "teacher" ? "/teacher/dashboard" : "/student/dashboard",
+        { replace: true }
+      );
+    } catch (err) {
+      setError(err.message || "Unable to sign in. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
+
 
   return (
     <AuthShell>
@@ -94,9 +147,18 @@ export function LoginPage() {
             {error}
           </p>
         ) : null}
-        <Button type="submit" variant="accent" className="w-full">
+        {/* <Button type="submit" variant="accent" className="w-full">
           Sign in to CampusHub
           <ArrowRight size={16} />
+        </Button> */}
+        <Button
+          type="submit"
+          variant="accent"
+          className="w-full"
+          disabled={loading}
+        >
+          {loading ? "Signing in..." : "Sign in to CampusHub"}
+          {!loading && <ArrowRight size={16} />}
         </Button>
       </form>
 

@@ -22,6 +22,6 @@ export function AuthProvider({ children }) {
     }),
     [user],
   );
-
+ 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+} 

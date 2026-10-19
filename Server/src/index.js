@@ -1,23 +1,16 @@
-
 const express = require("express")
 const cors= require("cors");
+const dotenv = require("dotenv");
+const router = require("./routes/auth.routes");
 const app = express();
-const dotenv = require("dotenv")
 
 dotenv.config();
-console.log();
-
 const PORT = process.env.PORT || 4000;
-// console.log(PORT)
 app.use(cors());
-app.get('/',(req,res)=>{
-    res.send("Welcome to homepage");
-})
+app.use(express.json())
+app.use('/api/auth',router);
 
-const dbconnection = require("./config/dbconnection")
-dbconnection()
-
-app.listen(PORT,()=>{
-    console.log(`Server is running of ${PORT} Port`);
+app.listen(PORT,(req,res)=>{
+    console.log(`server is running at ${PORT}`);
     
-})
+});

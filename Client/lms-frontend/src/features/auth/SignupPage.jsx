@@ -6,10 +6,12 @@ import { Input } from "../../components/ui/Input";
 import { PasswordInput } from "../../components/ui/PasswordInput";
 import { AuthShell } from "./AuthShell";
 import { AuthTabs } from "./AuthTabs";
+import { api } from "../../services/api";
 
 export function SignupPage() {
   const navigate = useNavigate();
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [terms, setTerms] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -24,32 +26,58 @@ export function SignupPage() {
     setError("");
   }
 
-  function handleSubmit(event) {
-    event.preventDefault();
+  
+async function handleSubmit(event) {
+  event.preventDefault();
 
-    if (form.name.trim().length < 2) {
-      setError("Please enter your full name.");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-    if (form.password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-    if (!terms) {
-      setError("Please accept the terms and privacy policy.");
-      return;
-    }
-
-    navigate("/verify-otp", { state: { email: form.email, name: form.name } });
+  if (form.name.trim().length < 2) {
+    setError("Please enter your full name.");
+    return;
   }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    setError("Please enter a valid email address.");
+    return;
+  }
+
+  if (form.password.length < 8) {
+    setError("Password must be at least 8 characters.");
+    return;
+  }
+
+  if (form.password !== form.confirmPassword) {
+    setError("Passwords do not match.");
+    return;
+  }
+
+  if (!terms) {
+    setError("Please accept the terms and privacy policy.");
+    return;
+  }
+
+  setLoading(true);
+  setError("");
+
+  try {
+    const response = await api().post("/auth/register", {
+      name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
+      password: form.password,
+    });
+
+    navigate("/verify-otp", {
+      state: {
+        email: form.email.trim().toLowerCase(),
+        name: form.name.trim(),
+      },
+    });
+  } catch (err) {
+    setError(err.message || "Registration failed. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+}
+
 
   return (
     <AuthShell>
@@ -115,9 +143,14 @@ export function SignupPage() {
             {error}
           </p>
         ) : null}
-        <Button type="submit" variant="accent" className="w-full">
-          Continue to verification
-          <ArrowRight size={16} />
+        <Button
+          type="submit"
+          variant="accent"
+          className="w-full"
+          disabled={loading}
+        >
+          {loading ? "Sending OTP..." : "Continue to verification"}
+          {!loading && <ArrowRight size={16} />}
         </Button>
       </form>
 
