@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+
 import {
   Search,
   BookOpen,
@@ -13,9 +14,11 @@ import {
   BookMarked,
   SlidersHorizontal,
 } from "lucide-react";
-import { coursesData, currentUser } from "../../data/mockLmsData";
+import { currentUser } from "../../data/mockLmsData";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Badge } from "../../components/ui/Badge";
+import { api } from "../../services/api";
+
 
 export function CoursesPage() {
   const navigate = useNavigate();
@@ -26,18 +29,79 @@ export function CoursesPage() {
   const [filterCategory, setFilterCategory] = useState("All"); // All | In Progress | Completed
   const [sortBy, setSortBy] = useState("progress"); // progress | code | credits
 
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState([]);
+  const [enrollingCourseId, setEnrollingCourseId] = useState(null);
+  const [enrollMessage, setEnrollMessage] = useState("");
+
   useEffect(() => {
     setSearchQuery(urlQuery);
   }, [urlQuery]);
 
+  useEffect(() => {
+    async function fetchCourses() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const [courseResponse, enrollmentResponse] = await Promise.all([
+          api().get("/course"),
+          api().get("/enrollments/my-courses"),
+        ]);
+
+        const enrollments = enrollmentResponse.enrollments || [];
+
+        const enrollmentMap = new Map(
+          enrollments.map((enrollment) => [
+            enrollment.courseId,
+            enrollment,
+          ])
+        );
+
+        const allCourses = (courseResponse.courses || []).map((course) => {
+          const enrollment = enrollmentMap.get(course.id);
+
+          return {
+            ...course,
+            progress: enrollment?.progress ?? 0,
+            category: enrollment
+              ? enrollment.status === "COMPLETED"
+                ? "Completed"
+                : "In Progress"
+              : "Not Enrolled",
+            enrollmentId: enrollment?.id ?? null,
+          };
+        });
+
+        setCourses(allCourses);
+        setEnrolledCourseIds(enrollments.map((item) => item.courseId));
+      } catch (err) {
+        setError(err.message || "Failed to fetch courses");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchCourses();
+  }, []);
+
   // Filter and sort courses
   const filteredCourses = useMemo(() => {
-    let result = [...coursesData];
+    let result = [...courses];
 
     // Filter by Category
     if (filterCategory !== "All") {
       result = result.filter((course) => course.category === filterCategory);
     }
+    if (filterCategory === "Not Enrolled") {
+  result = result.filter(
+    (course) => !enrolledCourseIds.includes(course.id)
+  );
+} else if (filterCategory !== "All") {
+  result = result.filter((course) => course.category === filterCategory);
+}
 
     // Filter by Search Query
     if (searchQuery.trim()) {
@@ -60,10 +124,19 @@ export function CoursesPage() {
     });
 
     return result;
-  }, [searchQuery, filterCategory, sortBy]);
+  }, [courses, searchQuery, filterCategory, sortBy,enrolledCourseIds]);
 
-  const inProgressCount = coursesData.filter((c) => c.category === "In Progress").length;
-  const completedCount = coursesData.filter((c) => c.category === "Completed").length;
+  const notEnrolledCount = courses.filter(
+    (c) => !enrolledCourseIds.includes(c.id)
+  ).length;
+
+  const inProgressCount = courses.filter(
+    (c) => c.category === "In Progress"
+  ).length;
+
+  const completedCount = courses.filter(
+    (c) => c.category === "Completed"
+  ).length;
 
   function handleSearchChange(e) {
     const value = e.target.value;
@@ -81,7 +154,44 @@ export function CoursesPage() {
     setSortBy("progress");
     setSearchParams({});
   }
+  async function handleEnroll(courseId) {
+    try {
+      setEnrollingCourseId(courseId);
+      setEnrollMessage("");
 
+      await api().post(`/enrollments/${courseId}`);
+
+      setEnrolledCourseIds((previous) =>
+        previous.includes(courseId) ? previous : [...previous, courseId]
+      );
+
+      setCourses((previous) =>
+        previous.map((course) =>
+          course.id === courseId
+            ? {
+              ...course,
+              progress: 0,
+              category: "In Progress",
+            }
+            : course
+        )
+      );
+
+      setEnrollMessage("Successfully enrolled in the course!");
+    } catch (err) {
+      setEnrollMessage(err.message || "Failed to enroll in course");
+    } finally {
+      setEnrollingCourseId(null);
+    }
+  }
+
+  if (loading) {
+    return <div className="p-6">Loading courses...</div>;
+  }
+
+  if (error) {
+    return <div className="p-6 text-red-500">{error}</div>;
+  }
   return (
     <div className="flex flex-col gap-6 lg:gap-8">
       {/* Top Level Breadcrumb Bar & Quick Stats */}
@@ -164,36 +274,44 @@ export function CoursesPage() {
             <button
               type="button"
               onClick={() => setFilterCategory("All")}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition shadow-xs ${
-                filterCategory === "All"
-                  ? "bg-navy text-white"
-                  : "bg-slate-100 text-muted hover:text-ink hover:bg-slate-200"
-              }`}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition shadow-xs ${filterCategory === "All"
+                ? "bg-navy text-white"
+                : "bg-slate-100 text-muted hover:text-ink hover:bg-slate-200"
+                }`}
             >
-              All ({coursesData.length})
+              All ({courses.length})
             </button>
             <button
               type="button"
               onClick={() => setFilterCategory("In Progress")}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition shadow-xs ${
-                filterCategory === "In Progress"
-                  ? "bg-navy text-white"
-                  : "bg-slate-100 text-muted hover:text-ink hover:bg-slate-200"
-              }`}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition shadow-xs ${filterCategory === "In Progress"
+                ? "bg-navy text-white"
+                : "bg-slate-100 text-muted hover:text-ink hover:bg-slate-200"
+                }`}
             >
               In Progress ({inProgressCount})
             </button>
             <button
               type="button"
               onClick={() => setFilterCategory("Completed")}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition shadow-xs ${
-                filterCategory === "Completed"
-                  ? "bg-navy text-white"
-                  : "bg-slate-100 text-muted hover:text-ink hover:bg-slate-200"
-              }`}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition shadow-xs ${filterCategory === "Completed"
+                ? "bg-navy text-white"
+                : "bg-slate-100 text-muted hover:text-ink hover:bg-slate-200"
+                }`}
             >
               Completed ({completedCount})
             </button>
+            <button
+  type="button"
+  onClick={() => setFilterCategory("Not Enrolled")}
+  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition shadow-xs ${
+    filterCategory === "Not Enrolled"
+      ? "bg-navy text-white"
+      : "bg-slate-100 text-muted hover:text-ink hover:bg-slate-200"
+  }`}
+>
+  Not Enrolled ({notEnrolledCount})
+</button>
           </div>
 
           <div className="text-xs text-muted flex items-center gap-1.5">
@@ -231,12 +349,19 @@ export function CoursesPage() {
             >
               {/* Course Thumbnail & Badges Banner */}
               <div className="relative h-44 w-full overflow-hidden bg-navy">
-                <img
-                  src={course.thumbnail}
-                  alt={course.title}
-                  className="w-full h-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105"
-                />
+
+                {course.thumbnail && (
+                  <img
+                    src={course.thumbnail}
+                    alt={course.title}
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                    className="w-full h-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105"
+                  />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-navy/90 via-navy/40 to-transparent" />
+
 
                 {/* Badges on banner */}
                 <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
@@ -303,14 +428,38 @@ export function CoursesPage() {
 
                 {/* Action Area */}
                 <div className="pt-1 flex items-center gap-2">
-                  <button
+                  {/* <button
                     type="button"
                     onClick={() => navigate(`/student/courses/${course.id}`)}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-orange hover:bg-orange-hover text-white text-xs font-semibold shadow-xs transition-colors"
                   >
                     <span>{course.progress === 100 ? "Review Course" : "Continue Learning"}</span>
                     <ArrowRight size={15} />
-                  </button>
+                  </button> */}
+                  {enrolledCourseIds.includes(course.id) ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/student/courses/${course.id}`)}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-orange hover:bg-orange-hover text-white text-xs font-semibold shadow-xs transition-colors"
+                    >
+                      <span>
+                        {course.progress === 100 ? "Review Course" : "Continue Learning"}
+                      </span>
+                      <ArrowRight size={15} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={enrollingCourseId === course.id}
+                      onClick={() => handleEnroll(course.id)}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-orange hover:bg-orange-hover text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-60"
+                    >
+                      <span>
+                        {enrollingCourseId === course.id ? "Enrolling..." : "Enroll Now"}
+                      </span>
+                      <ArrowRight size={15} />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => navigate(`/student/courses/${course.id}`)}
@@ -325,6 +474,11 @@ export function CoursesPage() {
           ))}
         </div>
       )}
+      {/* {enrollMessage && (
+        <p role="status" className="text-sm text-ink">
+          {enrollMessage}
+        </p>
+      )} */}
     </div>
   );
 }

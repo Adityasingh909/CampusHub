@@ -14,6 +14,7 @@ import { QuizzesPage } from "../features/quizzes/QuizzesPage";
 import { StudentProfilePage } from "../features/profile/StudentProfilePage";
 import { PrivateUploadsPage } from "../features/uploads/PrivateUploadsPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
+import { ProtectedRoute } from "../components/ProtectedRoute";
 
 export function AppRouter() {
   return (
@@ -24,7 +25,11 @@ export function AppRouter() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/verify-otp" element={<OtpPage />} />
 
-      <Route element={<DashboardLayout role="student" />}>
+      <Route element={
+        <ProtectedRoute role="student">
+      <DashboardLayout role="student" />
+    </ProtectedRoute>
+        }>
         <Route path="/student/dashboard" element={<StudentDashboardPage />} />
         <Route path="/student/courses" element={<CoursesPage />} />
         <Route path="/student/courses/:courseId" element={<CourseDetailPage />} />
@@ -48,7 +53,9 @@ export function AppRouter() {
         />
       </Route>
 
-      <Route element={<DashboardLayout role="teacher" />}>
+      <Route element={ <ProtectedRoute role="student">
+      <DashboardLayout role="student" />
+    </ProtectedRoute>}>
         <Route
           path="/teacher/dashboard"
           element={

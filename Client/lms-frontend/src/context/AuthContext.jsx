@@ -1,27 +1,47 @@
+
 import { createContext, useMemo, useState } from "react";
 
 export const AuthContext = createContext(null);
 
+const STORAGE_KEY = "campushub_auth";
+
+function getSavedAuth() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [auth, setAuth] = useState(getSavedAuth);
 
   const value = useMemo(
     () => ({
-      user,
-      isAuthenticated: Boolean(user),
+      user: auth?.user ?? null,
+      token: auth?.token ?? null,
+      isAuthenticated: Boolean(auth?.user && auth?.token),
+
       signIn: (nextUser) => {
-        setUser({
-          id: nextUser.id,
-          name: nextUser.name,
-          email: nextUser.email,
-          role: nextUser.role,
-          subtitle: nextUser.subtitle,
-        });
+        const { token, ...user } = nextUser;
+        const nextAuth = { user, token };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextAuth));
+        setAuth(nextAuth);
       },
-      signOut: () => setUser(null),
+
+      signOut: () => {
+        localStorage.removeItem(STORAGE_KEY);
+        setAuth(null);
+      },
     }),
-    [user],
+    [auth]
   );
- 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-} 
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}

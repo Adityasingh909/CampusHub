@@ -2,14 +2,14 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
-import { useAuth } from "../../hooks/useAuth";
+// import { useAuth } from "../../hooks/useAuth";
 import { api } from "../../services/api";
 import { AuthShell } from "./AuthShell";
 
 export function OtpPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  // const { signIn } = useAuth();
 
   const email = location.state?.email || "";
   const name = location.state?.name || "Student";
@@ -52,19 +52,30 @@ export function OtpPage() {
         otp: code,
       });
       if (!response?.user?.id) {
-  throw new Error(
-    response?.message || "Verification succeeded, but user details were not returned."
-  );
-}
-      signIn({
-        id: response.user.id,
-        name: response.user.name || name,
-        email: response.user.email,
-        role: String(response.user.role || "STUDENT").toLowerCase(),
-        subtitle: "Computer Science & Eng",
+        throw new Error(
+          response?.message || "Verification succeeded, but user details were not returned."
+        );
+      }
+
+      // signIn({
+      //   id: response.user.id,
+      //   name: response.user.name || name,
+      //   email: response.user.email,
+      //   role: String(response.user.role || "STUDENT").toLowerCase(),
+      //   subtitle: "Computer Science & Eng",
+      // });
+
+      // navigate("/student/dashboard", { replace: true });
+
+      navigate("/login", {
+        replace: true,
+        state: {
+          email: response.user.email,
+          message: "Email verified successfully. Please sign in.",
+        },
       });
 
-      navigate("/student/dashboard", { replace: true });
+
     } catch (err) {
       setError(err.message || "OTP verification failed. Please try again.");
     } finally {

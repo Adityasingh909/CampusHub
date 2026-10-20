@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { api } from "../../services/api";
 import {
   AlarmClock,
   CalendarDays,
@@ -36,8 +37,37 @@ export function StudentDashboardPage() {
   const [deadlineTab, setDeadlineTab] = useState("active");
   const [timetableOpen, setTimetableOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState("October 2026");
+  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
 
-  const recentCourses = coursesData.slice(0, 3);
+  useEffect(() => {
+    async function fetchDashboard() {
+      try {
+        setDashboardLoading(true);
+        setDashboardError("");
+
+        const response = await api().get("/dashboard/student");
+        setDashboardData(response);
+      } catch (error) {
+        setDashboardError(
+          error.message || "Failed to load dashboard"
+        );
+      } finally {
+        setDashboardLoading(false);
+      }
+    }
+
+    fetchDashboard();
+  }, []);
+
+  // const recentCourses = coursesData.slice(0, 3);
+  const recentCourses = (dashboardData?.courses ?? [])
+  .slice(0, 3)
+  .map((enrollment) => ({
+    ...enrollment.course,
+    progress: enrollment.progress,
+  }));
   const activeDeadlines = assignmentsData.filter(
     (item) => item.status !== "Graded" && item.status !== "Submitted"
   );
@@ -106,12 +136,20 @@ export function StudentDashboardPage() {
           <div className="mt-4 flex items-baseline justify-between">
             <div className="flex items-baseline gap-2">
               <span className="font-display text-3xl font-extrabold text-ink">
-                {currentUser.stats.enrolledCourses}
+                {/* {currentUser.stats.enrolledCourses} */}
+                {dashboardLoading
+                  ? "..."
+                  : dashboardData?.stats?.totalEnrolled ?? 0}
               </span>
               <span className="text-sm font-medium text-muted">Active</span>
             </div>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-navy font-semibold">
-              {currentUser.stats.activeLabs} Labs
+              {/* {currentUser.stats.activeLabs}
+               */}
+              {dashboardLoading
+                ? "..."
+                : `${dashboardData?.stats?.inProgress ?? 0} In Progress`}
+              Labs
             </span>
           </div>
           <div className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
@@ -232,11 +270,18 @@ export function StudentDashboardPage() {
                 >
                   <div className="flex flex-col gap-3">
                     <div className="w-full h-32 rounded-xl bg-slate-100 overflow-hidden relative flex items-center justify-center">
-                      <img
-                        src={course.thumbnail}
-                        alt={course.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+                      {course.thumbnail ? (
+  <img
+    src={course.thumbnail}
+    alt={course.title}
+    onError={(e) => {
+      e.currentTarget.style.display = "none";
+    }}
+    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+  />
+) : (
+  <BookOpen size={32} className="text-navy/50" />
+)}
                       <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-navy/85 backdrop-blur-sm text-white text-xs font-semibold">
                         {course.code}
                       </span>
@@ -290,22 +335,20 @@ export function StudentDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setDeadlineTab("active")}
-                  className={`px-3 py-1 text-xs rounded-md font-semibold transition ${
-                    deadlineTab === "active"
-                      ? "bg-white text-ink shadow-sm"
-                      : "text-muted hover:text-ink"
-                  }`}
+                  className={`px-3 py-1 text-xs rounded-md font-semibold transition ${deadlineTab === "active"
+                    ? "bg-white text-ink shadow-sm"
+                    : "text-muted hover:text-ink"
+                    }`}
                 >
                   Active ({activeDeadlines.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeadlineTab("completed")}
-                  className={`px-3 py-1 text-xs rounded-md font-semibold transition ${
-                    deadlineTab === "completed"
-                      ? "bg-white text-ink shadow-sm"
-                      : "text-muted hover:text-ink"
-                  }`}
+                  className={`px-3 py-1 text-xs rounded-md font-semibold transition ${deadlineTab === "completed"
+                    ? "bg-white text-ink shadow-sm"
+                    : "text-muted hover:text-ink"
+                    }`}
                 >
                   Completed ({completedDeadlines.length})
                 </button>
@@ -325,13 +368,12 @@ export function StudentDashboardPage() {
                   >
                     <div className="flex items-start sm:items-center gap-3.5 min-w-0">
                       <div
-                        className={`w-11 h-11 rounded-xl flex-shrink-0 flex items-center justify-center ${
-                          item.status === "Urgent"
-                            ? "bg-orange-100 text-orange-700"
-                            : item.status === "Graded"
+                        className={`w-11 h-11 rounded-xl flex-shrink-0 flex items-center justify-center ${item.status === "Urgent"
+                          ? "bg-orange-100 text-orange-700"
+                          : item.status === "Graded"
                             ? "bg-emerald-100 text-emerald-800"
                             : "bg-slate-100 text-navy"
-                        }`}
+                          }`}
                       >
                         {item.status === "Urgent" ? (
                           <AlarmClock size={22} />
@@ -546,13 +588,12 @@ export function StudentDashboardPage() {
               {activityFeed.map((act) => (
                 <div key={act.id} className="relative flex items-start gap-3 pl-1">
                   <div
-                    className={`w-5 h-5 rounded-full text-white flex items-center justify-center flex-shrink-0 z-10 shadow-xs text-[10px] ${
-                      act.type === "submission"
-                        ? "bg-orange"
-                        : act.type === "grade"
+                    className={`w-5 h-5 rounded-full text-white flex items-center justify-center flex-shrink-0 z-10 shadow-xs text-[10px] ${act.type === "submission"
+                      ? "bg-orange"
+                      : act.type === "grade"
                         ? "bg-emerald-600"
                         : "bg-navy"
-                    }`}
+                      }`}
                   >
                     ✓
                   </div>

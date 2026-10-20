@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo,useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { api } from "../../services/api";
 import {
   BookOpen,
   ArrowLeft,
@@ -41,9 +42,71 @@ export function CourseDetailPage() {
   const [saved, setSaved] = useState(false);
 
   // Find course by ID
-  const course = useMemo(() => {
-    return coursesData.find((c) => c.id === courseId);
-  }, [courseId]);
+  // const course = useMemo(() => {
+  //   return coursesData.find((c) => c.id === courseId);
+  // }, [courseId]);
+
+  const [course, setCourse] = useState(null);
+const [loading, setLoading] = useState(true);
+const [fetchError, setFetchError] = useState("");
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function fetchCourse() {
+    try {
+      setLoading(true);
+      setFetchError("");
+
+      const response = await api().get("/course");
+      const foundCourse = (response.courses || []).find(
+        (item) => String(item.id) === String(courseId)
+      );
+
+      if (!foundCourse) {
+        throw new Error("This course does not exist in the course catalogue.");
+      }
+
+      // Load enrollment-specific progress separately.
+      let progress = 0;
+
+      try {
+        const enrollmentResponse = await api().get(
+          "/enrollments/my-courses"
+        );
+
+        const enrollment = (enrollmentResponse.enrollments || []).find(
+          (item) => String(item.courseId) === String(foundCourse.id)
+        );
+
+        if (enrollment) {
+          progress = enrollment.progress ?? 0;
+        }
+      } catch {
+        // Course details can still be viewed if enrollment lookup fails.
+      }
+
+      if (!cancelled) {
+        setCourse({ ...foundCourse, progress });
+      }
+    } catch (error) {
+      if (!cancelled) {
+        setFetchError(error.message || "Failed to load course.");
+        setCourse(null);
+      }
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+  }
+
+  fetchCourse();
+
+  return () => {
+    cancelled = true;
+  };
+}, [courseId]);
 
   // Course-specific assignments
   const courseAssignments = useMemo(() => {
@@ -55,6 +118,11 @@ export function CourseDetailPage() {
 
   // Course-specific quizzes
   const courseQuizzes = useMemo(() => {
+    if (loading) {
+  <p className="text-sm text-muted max-w-md mt-2">
+  {fetchError || `Course ${courseId} could not be found.`}
+</p>
+}
     if (!course) return [];
     return quizzesData.filter(
       (q) => q.courseId === course.id || q.courseCode === course.code
@@ -570,94 +638,6 @@ export function CourseDetailPage() {
         </div>
       )}
 
-      {/* TAB 2: MODULES */}
-      {activeTab === "modules" && (
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-display text-xl font-bold text-ink">
-                Weekly Module Roadmap
-              </h3>
-              <p className="text-xs text-muted mt-1">
-                Structured progressive curriculum from foundation concepts to capstone execution.
-              </p>
-            </div>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-navy">
-              {modules.length} Modules
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            {modules.map((mod, idx) => (
-              <div
-                key={mod.id || idx}
-                className="rounded-2xl border border-line bg-white p-5 sm:p-6 shadow-card flex flex-col gap-4"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-8 h-8 rounded-lg bg-navy/10 text-navy font-bold text-xs flex items-center justify-center">
-                      0{idx + 1}
-                    </span>
-                    <div>
-                      <h4 className="font-display text-base font-bold text-ink">
-                        {mod.title}
-                      </h4>
-                      <p className="text-xs text-muted">{mod.weeks}</p>
-                    </div>
-                  </div>
-                  <div>
-                    {mod.status === "Completed" ? (
-                      <Badge tone="success" dot>Completed</Badge>
-                    ) : mod.status === "In Progress" ? (
-                      <Badge tone="orange" dot>In Progress</Badge>
-                    ) : (
-                      <Badge tone="neutral">Upcoming</Badge>
-                    )}
-                  </div>
-                </div>
-
-                {/* Lessons in this module */}
-                <div className="divide-y divide-slate-100">
-                  {mod.lessons.map((lesson, lIdx) => (
-                    <div
-                      key={lIdx}
-                      className="py-3 flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-canvas text-navy flex items-center justify-center">
-                          {lesson.type === "video" ? (
-                            <Video size={16} />
-                          ) : lesson.type === "lab" ? (
-                            <FileCode size={16} />
-                          ) : (
-                            <FileText size={16} />
-                          )}
-                        </div>
-                        <div>
-                          <span className="font-semibold text-ink text-sm block">
-                            {lesson.title}
-                          </span>
-                          <span className="text-muted capitalize">
-                            {lesson.type} • {lesson.duration}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => toast.show(`Opening lesson: "${lesson.title}"`, "info")}
-                        className="px-3 py-1.5 rounded-lg border border-line hover:bg-canvas text-navy text-xs font-semibold transition"
-                      >
-                        Open
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* TAB 3: MATERIALS */}
       {activeTab === "materials" && (
