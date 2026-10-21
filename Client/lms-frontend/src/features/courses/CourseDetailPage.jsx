@@ -1,10 +1,8 @@
-import { useState, useMemo,useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { api } from "../../services/api";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   BookOpen,
   ArrowLeft,
-  Calendar,
   Clock,
   MapPin,
   User,
@@ -13,20 +11,17 @@ import {
   Share2,
   Bookmark,
   CheckCircle2,
-  PlayCircle,
   FileText,
-  Video,
-  FileCode,
-  FolderOpen,
   ClipboardList,
   Megaphone,
   AlertCircle,
   ChevronRight,
   ExternalLink,
-  Award,
 } from "lucide-react";
+
+import { AuthContext } from "../../context/AuthContext";
+import { api } from "../../services/api";
 import {
-  coursesData,
   assignmentsData,
   quizzesData,
 } from "../../data/mockLmsData";
@@ -37,731 +32,909 @@ export function CourseDetailPage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-
-  const [activeTab, setActiveTab] = useState("overview"); // overview | modules | materials | assignments | announcements
-  const [saved, setSaved] = useState(false);
-
-  // Find course by ID
-  // const course = useMemo(() => {
-  //   return coursesData.find((c) => c.id === courseId);
-  // }, [courseId]);
+  const { user } = useContext(AuthContext);
 
   const [course, setCourse] = useState(null);
-const [loading, setLoading] = useState(true);
-const [fetchError, setFetchError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState("");
 
-useEffect(() => {
-  let cancelled = false;
+  const [activeTab, setActiveTab] = useState("overview");
+  const [saved, setSaved] = useState(false);
 
-  async function fetchCourse() {
-    try {
-      setLoading(true);
-      setFetchError("");
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
 
-      const response = await api().get("/course");
-      const foundCourse = (response.courses || []).find(
-        (item) => String(item.id) === String(courseId)
-      );
+  const [detailsForm, setDetailsForm] = useState({
+    description: "",
+    syllabusUrl: "",
+    officeHours: "",
+    learningObjectives: "",
+  });
 
-      if (!foundCourse) {
-        throw new Error("This course does not exist in the course catalogue.");
-      }
+  const canEditCourse =
+    user?.role === "TEACHER" &&
+    user?.id != null &&
+    course?.teacherId != null &&
+    Number(user.id) === Number(course.teacherId);
 
-      // Load enrollment-specific progress separately.
-      let progress = 0;
+  // Load the course from the backend.
+  useEffect(() => {
+    let cancelled = false;
 
+    async function fetchCourse() {
       try {
-        const enrollmentResponse = await api().get(
-          "/enrollments/my-courses"
-        );
+        setLoading(true);
+        setFetchError("");
 
-        const enrollment = (enrollmentResponse.enrollments || []).find(
-          (item) => String(item.courseId) === String(foundCourse.id)
-        );
+        const response = await api().get(`/course/${courseId}`);
 
-        if (enrollment) {
-          progress = enrollment.progress ?? 0;
+        if (!response?.course) {
+          throw new Error("Course not found.");
         }
-      } catch {
-        // Course details can still be viewed if enrollment lookup fails.
-      }
 
-      if (!cancelled) {
-        setCourse({ ...foundCourse, progress });
-      }
-    } catch (error) {
-      if (!cancelled) {
-        setFetchError(error.message || "Failed to load course.");
-        setCourse(null);
-      }
-    } finally {
-      if (!cancelled) {
-        setLoading(false);
+        const foundCourse = response.course;
+
+        // Load enrollment progress when available.
+        let enrollmentProgress = 0;
+
+        try {
+          const enrollmentResponse = await api().get(
+            "/enrollments/my-courses"
+          );
+
+          const enrollment = (
+            enrollmentResponse.enrollments ?? []
+          ).find(
+            (item) =>
+              String(item.courseId) === String(foundCourse.id)
+          );
+
+          if (enrollment) {
+            enrollmentProgress = enrollment.progress ?? 0;
+          }
+        } catch (error) {
+          // The course itself can still be displayed if enrollment
+          // data isn't available to this user.
+          console.warn("Enrollment progress unavailable:", error.message);
+        }
+
+        if (!cancelled) {
+          setCourse({
+            ...foundCourse,
+            progress: enrollmentProgress,
+            instructor:
+              foundCourse.teacher?.name ||
+              foundCourse.instructor ||
+              "Instructor not assigned",
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setCourse(null);
+          setFetchError(error.message || "Failed to load course.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
-  }
 
-  fetchCourse();
+    fetchCourse();
 
-  return () => {
-    cancelled = true;
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  // Keep the edit form synchronized with the loaded course.
+  useEffect(() => {
+    if (!course) return;
+
+    setDetailsForm({
+      description: course.description ?? "",
+      syllabusUrl: course.syllabusUrl ?? "",
+      officeHours: course.officeHours ?? "",
+      learningObjectives: (
+        course.learningObjectives ?? []
+      ).join("\n"),
+    });
+  }, [course]);
+
+  const updateFormField = (field, value) => {
+    setDetailsForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
   };
-}, [courseId]);
 
-  // Course-specific assignments
+  const handleSaveCourseDetails = async () => {
+    if (!canEditCourse || !course) {
+      setDetailsError("You are not allowed to edit this course.");
+      return;
+    }
+
+    try {
+      setSavingDetails(true);
+      setDetailsError("");
+
+      const syllabusUrl = detailsForm.syllabusUrl.trim();
+
+      if (syllabusUrl) {
+        let parsedUrl;
+
+        try {
+          parsedUrl = new URL(syllabusUrl);
+        } catch {
+          throw new Error("Enter a valid syllabus URL.");
+        }
+
+        if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+          throw new Error("The syllabus URL must use HTTP or HTTPS.");
+        }
+      }
+
+      const response = await api().put(`/course/${course.id}`, {
+        description: detailsForm.description.trim(),
+        syllabusUrl,
+        officeHours: detailsForm.officeHours.trim(),
+        learningObjectives: detailsForm.learningObjectives
+          .split("\n")
+          .map((objective) => objective.trim())
+          .filter(Boolean),
+      });
+
+      if (!response?.success || !response.course) {
+        throw new Error(
+          response?.message || "Failed to update course details."
+        );
+      }
+
+      setCourse((previous) => ({
+        ...previous,
+        ...response.course,
+        teacher: previous.teacher,
+        instructor:
+          response.course.teacher?.name ||
+          previous.teacher?.name ||
+          response.course.instructor ||
+          previous.instructor,
+      }));
+
+      setIsEditingDetails(false);
+      toast.show("Course details saved successfully.", "success");
+    } catch (error) {
+      setDetailsError(
+        error.message || "Failed to save course details."
+      );
+    } finally {
+      setSavingDetails(false);
+    }
+  };
+
+  const handleCancelEditing = () => {
+    setDetailsForm({
+      description: course.description ?? "",
+      syllabusUrl: course.syllabusUrl ?? "",
+      officeHours: course.officeHours ?? "",
+      learningObjectives: (
+        course.learningObjectives ?? []
+      ).join("\n"),
+    });
+
+    setDetailsError("");
+    setIsEditingDetails(false);
+  };
+
+  const handleSaveCourse = () => {
+    setSaved((previous) => !previous);
+
+    toast.show(
+      saved
+        ? "Course removed from bookmarks."
+        : "Course saved to your academic bookmarks.",
+      "success"
+    );
+  };
+
+  const handleShareCourse = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.show("Course link copied to clipboard.", "success");
+    } catch {
+      toast.show("Unable to copy the course link.", "error");
+    }
+  };
+
+  // Assignments and quizzes remain mock-backed until their APIs exist.
   const courseAssignments = useMemo(() => {
     if (!course) return [];
-    return assignmentsData.filter(
-      (a) => a.courseId === course.id || a.courseCode === course.code
+
+    return (assignmentsData ?? []).filter(
+      (assignment) =>
+        assignment &&
+        (
+          String(assignment.courseId) === String(course.id) ||
+          assignment.courseCode === course.code
+        )
     );
   }, [course]);
 
-  // Course-specific quizzes
   const courseQuizzes = useMemo(() => {
-    if (loading) {
-  <p className="text-sm text-muted max-w-md mt-2">
-  {fetchError || `Course ${courseId} could not be found.`}
-</p>
-}
     if (!course) return [];
-    return quizzesData.filter(
-      (q) => q.courseId === course.id || q.courseCode === course.code
+
+    return (quizzesData ?? []).filter(
+      (quiz) =>
+        String(quiz.courseId) === String(course.id) ||
+        quiz.courseCode === course.code
     );
   }, [course]);
 
-  // Fallback modules for courses that don't have dedicated modules listed
-  const modules = useMemo(() => {
-    if (!course) return [];
-    if (course.modules && course.modules.length > 0) return course.modules;
-    return [
-      {
-        id: "gen-mod-1",
-        title: `Module 1: Foundations of ${course.title}`,
-        weeks: "Weeks 1-4",
-        status: "Completed",
-        lessons: [
-          { title: "Core Principles & Architecture Paradigms", duration: "45m", type: "video" },
-          { title: "Theoretical Foundations & Asymptotic Constraints", duration: "60m", type: "slides" },
-          { title: "Diagnostic Lab & Workspace Setup", duration: "90m", type: "lab" },
-        ],
-      },
-      {
-        id: "gen-mod-2",
-        title: `Module 2: Advanced Implementation & Heuristics`,
-        weeks: "Weeks 5-8",
-        status: "In Progress",
-        lessons: [
-          { title: "Practical Optimization Techniques", duration: "50m", type: "video" },
-          { title: "Case Studies & Architectural Tradeoffs", duration: "40m", type: "reading" },
-          { title: "Comprehensive Capstone Milestone", duration: "120m", type: "lab" },
-        ],
-      },
-      {
-        id: "gen-mod-3",
-        title: `Module 3: Verification, Profiling & Distributed Patterns`,
-        weeks: "Weeks 9-12",
-        status: "Upcoming",
-        lessons: [
-          { title: "Benchmarking and Security Invariants", duration: "55m", type: "reading" },
-          { title: "Final Semester Examination Review", duration: "75m", type: "slides" },
-        ],
-      },
-    ];
-  }, [course]);
+  const completedAssignments = courseAssignments.filter(
+    (assignment) =>
+      ["COMPLETED", "SUBMITTED", "Graded"].includes(
+        assignment.status
+      ) ||
+      assignment.submissionStatus === "SUBMITTED"
+  ).length;
 
-  // Fallback materials
+  const totalAssignments = courseAssignments.length;
+
+  const assignmentProgress =
+    totalAssignments === 0
+      ? 0
+      : Math.round(
+          (completedAssignments / totalAssignments) * 100
+        );
+
   const materials = useMemo(() => {
     if (!course) return [];
-    if (course.materials && course.materials.length > 0) return course.materials;
-    return [
-      { id: "mat-1", title: `${course.code} Course Syllabus & Lecture Schedule`, type: "PDF", size: "2.1 MB", date: "Oct 10" },
-      { id: "mat-2", title: `Lecture Notes: Weeks 1-6 Master Review`, type: "PDF", size: "4.8 MB", date: "Oct 14" },
-      { id: "mat-3", title: `Reference Textbook Solutions & Lab Manual`, type: "ZIP", size: "15.3 MB", date: "Oct 16" },
-    ];
+
+    return course.materials ?? [];
   }, [course]);
 
-  // Fallback announcements
   const announcements = useMemo(() => {
     if (!course) return [];
-    if (course.announcements && course.announcements.length > 0) return course.announcements;
-    return [
-      {
-        id: "ann-1",
-        title: `Welcome to ${course.code}: ${course.title}`,
-        date: "Oct 01, 2026",
-        content: `Welcome to the Fall 2026 session. All course materials, lab assignments, and quiz links will be posted under this portal. Please review the syllabus PDF before the first lecture.`,
-      },
-    ];
+
+    return course.announcements ?? [];
   }, [course]);
+
+  if (loading) {
+    return (
+      <div className="p-8 text-sm text-muted">
+        Loading course details...
+      </div>
+    );
+  }
 
   if (!course) {
     return (
-      <div className="rounded-2xl border border-line bg-white p-12 text-center shadow-card flex flex-col items-center">
-        <div className="w-16 h-16 rounded-2xl bg-orange/10 text-orange flex items-center justify-center mb-4">
-          <AlertCircle size={32} />
-        </div>
-        <h2 className="font-display text-2xl font-bold text-ink">Course Not Found</h2>
-        <p className="text-sm text-muted max-w-md mt-2">
-          The course with identifier &quot;{courseId}&quot; does not exist in your enrolled courses registry.
+      <div className="flex flex-col items-center rounded-2xl border border-line bg-white p-12 text-center shadow-card">
+        <AlertCircle size={32} className="mb-4 text-orange" />
+
+        <h2 className="font-display text-2xl font-bold text-ink">
+          Course Not Found
+        </h2>
+
+        <p className="mt-2 max-w-md text-sm text-muted">
+          {fetchError || `Course ${courseId} could not be found.`}
         </p>
+
         <button
           type="button"
           onClick={() => navigate("/student/courses")}
-          className="mt-6 px-5 py-2.5 rounded-xl bg-navy text-white text-sm font-semibold hover:bg-navy-hover transition flex items-center gap-2 shadow-sm"
+          className="mt-6 flex items-center gap-2 rounded-xl bg-navy px-5 py-2.5 text-sm font-semibold text-white"
         >
           <ArrowLeft size={16} />
-          <span>Back to My Courses</span>
+          Back to Courses
         </button>
       </div>
     );
   }
 
-  function handleSaveCourse() {
-    setSaved(!saved);
-    toast.show(
-      saved ? "Course removed from bookmarks" : "Course saved to your academic bookmarks!",
-      "success"
-    );
-  }
-
-  function handleShareCourse() {
-    navigator.clipboard?.writeText(window.location.href);
-    toast.show("Course share link copied to clipboard!", "info");
-  }
-
-  function handleDownload(title) {
-    toast.show(`Downloading "${title}"...`, "info");
-  }
+  const instructorName =
+    course.teacher?.name || course.instructor || "Instructor not assigned";
 
   return (
     <div className="flex flex-col gap-6 lg:gap-8">
-      {/* Top Breadcrumb & Metadata Trail */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-muted flex-wrap">
+      {/* Breadcrumb and actions */}
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted">
           <Link
             to="/student/courses"
-            className="hover:text-navy transition-colors flex items-center gap-1"
+            className="flex items-center gap-1 hover:text-navy"
           >
             <BookOpen size={14} />
-            <span>My Courses</span>
+            My Courses
           </Link>
+
           <span>/</span>
-          <span className="text-ink font-bold">
+
+          <span className="font-bold text-ink">
             {course.title} ({course.code})
-          </span>
-          <span className="ml-2 px-2.5 py-0.5 rounded-full bg-slate-100 text-navy text-[11px] font-semibold">
-            Fall 2026
           </span>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start">
           <button
             type="button"
             onClick={handleSaveCourse}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line text-xs font-semibold transition shadow-xs ${
-              saved
-                ? "bg-orange text-white border-orange"
-                : "bg-white text-ink hover:bg-slate-50"
-            }`}
+            className="flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-2 text-xs font-semibold text-ink"
           >
             <Bookmark size={15} />
-            <span>{saved ? "Saved" : "Save Course"}</span>
+            {saved ? "Saved" : "Save Course"}
           </button>
+
           <button
             type="button"
             onClick={handleShareCourse}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-white text-ink hover:bg-slate-50 text-xs font-semibold transition shadow-xs"
+            className="flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-2 text-xs font-semibold text-ink"
           >
             <Share2 size={15} />
-            <span>Share</span>
+            Share
           </button>
         </div>
       </div>
 
-      {/* Course Hero Banner */}
-      <div className="relative w-full rounded-2xl bg-gradient-to-r from-navy-deep via-navy to-navy-hover p-6 sm:p-8 text-white shadow-card overflow-hidden">
-        {/* Decorative Ambient Visuals */}
-        <div className="absolute -right-8 -bottom-12 w-80 h-80 rounded-full bg-orange/15 blur-3xl pointer-events-none" />
-        <div className="absolute right-1/4 -top-12 w-64 h-64 rounded-full bg-blue-400/10 blur-2xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 lg:gap-8">
-          <div className="flex-1 max-w-3xl">
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="px-3 py-1 rounded-full bg-orange text-white text-xs font-bold tracking-wider uppercase shadow-xs">
+      {/* Course hero */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-navy-deep via-navy to-navy-hover p-6 text-white shadow-card sm:p-8">
+        <div className="relative z-10 flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-center">
+          <div className="max-w-3xl flex-1">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-orange px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
                 {course.code}
               </span>
-              <span className="px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md text-slate-200 text-xs font-semibold">
-                {course.credits}.0 Credits
+
+              <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-200">
+                {course.credits} Credits
               </span>
-              <span className="px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md text-slate-200 text-xs font-semibold">
+
+              <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-200">
                 Computer Science &amp; Eng
               </span>
             </div>
 
-            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight mb-2">
+            <h1 className="mb-2 font-display text-2xl font-extrabold tracking-tight sm:text-3xl lg:text-4xl">
               {course.title}
             </h1>
-            <p className="text-sm sm:text-base text-slate-300 max-w-2xl leading-relaxed">
-              {course.description}
+
+            <p className="max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
+              {course.description || "Course description not provided."}
             </p>
 
-            <div className="flex flex-wrap items-center gap-y-2 gap-x-5 mt-5 text-slate-300 text-xs sm:text-sm">
+            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-300 sm:text-sm">
               <div className="flex items-center gap-1.5">
                 <User size={16} className="text-orange" />
-                <span className="text-white font-medium">{course.instructor}</span>
+                <span className="font-medium text-white">
+                  {instructorName}
+                </span>
               </div>
+
               <div className="flex items-center gap-1.5">
                 <Clock size={16} className="text-blue-300" />
-                <span>{course.schedule}</span>
+                <span>{course.schedule || "Schedule not set"}</span>
               </div>
+
               <div className="flex items-center gap-1.5">
                 <MapPin size={16} className="text-emerald-300" />
-                <span>{course.room}</span>
+                <span>{course.room || "Room not set"}</span>
               </div>
             </div>
           </div>
 
-          {/* Quick Action & Course Progress Card */}
-          <div className="w-full lg:w-80 bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-5 flex flex-col gap-4">
+          {/* Progress and Continue Learning */}
+          <div className="flex w-full flex-col gap-4 rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur-md lg:w-80">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                Course Progress
+                Assignment Progress
               </span>
-              <span className="font-display text-xl font-bold text-white">
-                {course.progress}%
+
+              <span className="font-display text-xl font-bold">
+                {assignmentProgress}%
               </span>
             </div>
 
-            {/* Progress Bar Track */}
-            <div className="w-full h-2.5 bg-black/25 rounded-full overflow-hidden">
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-black/25">
               <div
-                className="h-full bg-orange rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${course.progress}%` }}
+                className="h-full rounded-full bg-orange transition-all duration-500"
+                style={{ width: `${assignmentProgress}%` }}
               />
             </div>
 
-            <div className="flex justify-between items-center text-xs text-slate-300 font-medium">
-              <span>{Math.round((course.progress / 100) * 24)} of 24 Modules completed</span>
-              <span className="text-orange font-bold">
-                {24 - Math.round((course.progress / 100) * 24)} Remaining
+            <div className="flex items-center justify-between text-xs font-medium text-slate-300">
+              <span>
+                {completedAssignments} of {totalAssignments} completed
+              </span>
+
+              <span className="font-bold text-orange">
+                {totalAssignments - completedAssignments} Remaining
               </span>
             </div>
 
             <button
               type="button"
-              onClick={() => setActiveTab("modules")}
-              className="w-full mt-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-orange text-white rounded-xl text-xs sm:text-sm font-semibold hover:bg-orange-hover transition-all shadow-sm group"
+              onClick={() => setActiveTab("assignments")}
+              className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-orange px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-hover"
             >
-              <span>Continue Learning</span>
-              <ChevronRight
-                size={16}
-                className="group-hover:translate-x-1 transition-transform"
-              />
+              Continue Learning
+              <ChevronRight size={16} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Segmented Course Navigation Tabs */}
-      <div className="w-full bg-white border border-line rounded-2xl p-1.5 shadow-card overflow-x-auto">
-        <div className="flex items-center gap-1 min-w-max sm:min-w-0" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "overview"}
-            onClick={() => setActiveTab("overview")}
-            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition ${
-              activeTab === "overview"
-                ? "bg-navy text-white shadow-sm"
-                : "text-muted hover:text-ink hover:bg-slate-50"
-            }`}
-          >
-            <BookOpen size={16} />
-            <span>Overview</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "modules"}
-            onClick={() => setActiveTab("modules")}
-            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition ${
-              activeTab === "modules"
-                ? "bg-navy text-white shadow-sm"
-                : "text-muted hover:text-ink hover:bg-slate-50"
-            }`}
-          >
-            <FolderOpen size={16} />
-            <span>Modules</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                activeTab === "modules" ? "bg-white/20 text-white" : "bg-slate-100 text-ink"
+      {/* Navigation tabs */}
+      <div className="w-full overflow-x-auto rounded-2xl border border-line bg-white p-1.5 shadow-card">
+        <div className="flex min-w-max items-center gap-1 sm:min-w-0" role="tablist">
+          {[
+            { id: "overview", label: "Overview", icon: BookOpen },
+            { id: "materials", label: "Materials", icon: FileText },
+            { id: "assignments", label: "Assignments", icon: ClipboardList },
+            { id: "announcements", label: "Announcements", icon: Megaphone },
+          ].map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === id}
+              onClick={() => setActiveTab(id)}
+              className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition sm:text-sm ${
+                activeTab === id
+                  ? "bg-navy text-white shadow-sm"
+                  : "text-muted hover:bg-slate-50 hover:text-ink"
               }`}
             >
-              {modules.length}
-            </span>
-          </button>
+              <Icon size={16} />
+              {label}
 
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "materials"}
-            onClick={() => setActiveTab("materials")}
-            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition ${
-              activeTab === "materials"
-                ? "bg-navy text-white shadow-sm"
-                : "text-muted hover:text-ink hover:bg-slate-50"
-            }`}
-          >
-            <FileText size={16} />
-            <span>Materials</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                activeTab === "materials" ? "bg-white/20 text-white" : "bg-slate-100 text-ink"
-              }`}
-            >
-              {materials.length}
-            </span>
-          </button>
+              {id === "materials" && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-ink">
+                  {materials.length}
+                </span>
+              )}
 
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "assignments"}
-            onClick={() => setActiveTab("assignments")}
-            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition ${
-              activeTab === "assignments"
-                ? "bg-navy text-white shadow-sm"
-                : "text-muted hover:text-ink hover:bg-slate-50"
-            }`}
-          >
-            <ClipboardList size={16} />
-            <span>Assignments</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                activeTab === "assignments" ? "bg-orange text-white" : "bg-orange-100 text-orange-800"
-              }`}
-            >
-              {courseAssignments.length}
-            </span>
-          </button>
+              {id === "assignments" && (
+                <span className="rounded-full bg-orange/10 px-2 py-0.5 text-[11px] text-orange">
+                  {courseAssignments.length}
+                </span>
+              )}
 
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "announcements"}
-            onClick={() => setActiveTab("announcements")}
-            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition ${
-              activeTab === "announcements"
-                ? "bg-navy text-white shadow-sm"
-                : "text-muted hover:text-ink hover:bg-slate-50"
-            }`}
-          >
-            <Megaphone size={16} />
-            <span>Announcements</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                activeTab === "announcements" ? "bg-white/20 text-white" : "bg-slate-100 text-ink"
-              }`}
-            >
-              {announcements.length}
-            </span>
-          </button>
+              {id === "announcements" && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-ink">
+                  {announcements.length}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* TAB CONTENT PANELS */}
-
-      {/* TAB 1: OVERVIEW */}
+      {/* Overview */}
       {activeTab === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          {/* Left Column (8 cols) */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            {/* About Card */}
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-card flex flex-col gap-4">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
+          <div className="flex flex-col gap-6 lg:col-span-8">
+            {/* About Course */}
+            <div className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-6 shadow-card">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-6 bg-orange rounded-full" />
+                  <span className="h-6 w-2.5 rounded-full bg-orange" />
+
                   <h2 className="font-display text-xl font-bold text-ink">
                     About This Course
                   </h2>
                 </div>
-                <span className="text-xs text-muted">Updated Fall 2026</span>
+
+                <div className="flex items-center gap-3">
+                  {course.updatedAt && (
+                    <span className="text-xs text-muted">
+                      Updated{" "}
+                      {new Date(course.updatedAt).toLocaleDateString()}
+                    </span>
+                  )}
+
+                  {canEditCourse && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isEditingDetails) {
+                          handleCancelEditing();
+                        } else {
+                          setDetailsError("");
+                          setIsEditingDetails(true);
+                        }
+                      }}
+                      className="rounded-lg border border-line px-3 py-2 text-xs font-semibold hover:bg-canvas"
+                    >
+                      {isEditingDetails ? "Cancel editing" : "Edit details"}
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <p className="text-sm text-ink leading-relaxed">
-                {course.description} Students navigate the entire curriculum lifecycle: from modular UI architecture using modern component frameworks to scalable distributed backends, asynchronous messaging patterns, schema modeling, and production cloud builds.
-              </p>
+              {isEditingDetails && canEditCourse ? (
+                <label className="text-sm font-semibold text-ink">
+                  Course description
+                  <textarea
+                    rows={5}
+                    value={detailsForm.description}
+                    onChange={(event) =>
+                      updateFormField("description", event.target.value)
+                    }
+                    className="mt-2 w-full rounded-xl border border-line p-3 text-sm font-normal"
+                    placeholder="Enter the course description"
+                  />
+                </label>
+              ) : (
+                <p className="whitespace-pre-line text-sm leading-relaxed text-ink">
+                  {course.description ||
+                    "No course description has been added yet."}
+                </p>
+              )}
 
-              {/* Download Syllabus PDF Box */}
-              <div className="p-4 bg-canvas border border-line/80 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-orange/10 flex items-center justify-center text-orange flex-shrink-0">
+              {/* Syllabus */}
+              <div className="mt-2 flex flex-col items-start justify-between gap-4 rounded-xl border border-line/80 bg-canvas p-4 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-orange/10 text-orange">
                     <FileText size={24} />
                   </div>
-                  <div>
+
+                  <div className="min-w-0">
                     <h4 className="font-display text-sm font-bold text-ink">
-                      Complete Syllabus &amp; Course Policy
+                      Course Syllabus &amp; Policy
                     </h4>
-                    <p className="text-xs text-muted">
-                      Version 2.4 • 1.8 MB PDF • Grading Rubric Included
+
+                    <p className="mt-1 text-xs text-muted">
+                      {course.syllabusUrl
+                        ? "Syllabus document available"
+                        : "No syllabus document added yet."}
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDownload(`${course.code}_Syllabus_Fall_2026.pdf`)}
-                  className="px-4 py-2 bg-navy text-white rounded-xl text-xs font-semibold hover:bg-navy-hover transition-colors shadow-xs flex items-center gap-1.5 whitespace-nowrap self-stretch sm:self-auto justify-center"
-                >
-                  <Download size={14} />
-                  <span>Download PDF</span>
-                </button>
+
+                <div className="w-full sm:w-auto">
+                  {isEditingDetails && canEditCourse ? (
+                    <input
+                      type="url"
+                      value={detailsForm.syllabusUrl}
+                      onChange={(event) =>
+                        updateFormField("syllabusUrl", event.target.value)
+                      }
+                      placeholder="https://example.com/syllabus.pdf"
+                      className="w-full rounded-xl border border-line bg-white p-3 text-sm sm:w-72"
+                    />
+                  ) : course.syllabusUrl ? (
+                    <a
+                      href={course.syllabusUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-navy px-4 py-2 text-xs font-semibold text-white hover:bg-navy-hover"
+                    >
+                      <Download size={14} />
+                      View Syllabus
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted">
+                      Not available
+                    </span>
+                  )}
+                </div>
               </div>
+
+              {/* Office Hours editor */}
+              {isEditingDetails && canEditCourse && (
+                <label className="text-sm font-semibold text-ink">
+                  Instructor office hours
+                  <input
+                    value={detailsForm.officeHours}
+                    onChange={(event) =>
+                      updateFormField("officeHours", event.target.value)
+                    }
+                    placeholder="e.g. Tuesday and Thursday, 3–5 PM"
+                    className="mt-2 w-full rounded-xl border border-line p-3 text-sm font-normal"
+                  />
+                </label>
+              )}
+
+              {/* Save and Cancel */}
+              {isEditingDetails && canEditCourse && (
+                <div className="flex flex-col gap-3">
+                  {detailsError && (
+                    <p className="text-sm text-red-600">{detailsError}</p>
+                  )}
+
+                  <div className="flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCancelEditing}
+                      disabled={savingDetails}
+                      className="rounded-xl border border-line px-4 py-2 text-sm font-semibold"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveCourseDetails}
+                      disabled={savingDetails}
+                      className="rounded-xl bg-navy px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      {savingDetails ? "Saving..." : "Save changes"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Core Learning Objectives */}
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-card flex flex-col gap-4">
+            {/* Learning Objectives */}
+            <div className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-6 shadow-card">
               <h3 className="font-display text-lg font-bold text-ink">
                 Core Learning Objectives
               </h3>
+
               <p className="text-xs text-muted">
-                Mastery verified via automated code tests, live lab sessions, and sprint deliverables.
+                Learning objectives defined by the course instructor.
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-1">
-                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-canvas border border-line/60">
-                  <CheckCircle2 size={20} className="text-orange mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="text-xs font-bold text-ink">Architectural State Graphs</h4>
-                    <p className="text-xs text-muted mt-0.5">
-                      Manage complex client state flows with context reducers, custom hooks, and memoization.
-                    </p>
-                  </div>
-                </div>
+              {isEditingDetails && canEditCourse ? (
+                <label className="text-sm font-semibold text-ink">
+                  Learning objectives (one per line)
+                  <textarea
+                    rows={6}
+                    value={detailsForm.learningObjectives}
+                    onChange={(event) =>
+                      updateFormField(
+                        "learningObjectives",
+                        event.target.value
+                      )
+                    }
+                    placeholder={"Design REST APIs\nModel relational data"}
+                    className="mt-2 w-full rounded-xl border border-line p-3 text-sm font-normal"
+                  />
+                </label>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {(course.learningObjectives ?? [])
+                    .filter(Boolean)
+                    .map((objective, index) => (
+                      <div
+                        key={`${index}-${objective}`}
+                        className="flex items-start gap-3 rounded-xl border border-line/60 bg-canvas p-3.5"
+                      >
+                        <CheckCircle2
+                          size={20}
+                          className="mt-0.5 flex-shrink-0 text-orange"
+                        />
 
-                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-canvas border border-line/60">
-                  <CheckCircle2 size={20} className="text-orange mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="text-xs font-bold text-ink">Stateless RESTful APIs &amp; Auth</h4>
-                    <p className="text-xs text-muted mt-0.5">
-                      Design enterprise endpoints with JWT tokens, CORS policy, and rate limiting.
-                    </p>
-                  </div>
-                </div>
+                        <p className="text-sm text-ink">{objective}</p>
+                      </div>
+                    ))}
 
-                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-canvas border border-line/60">
-                  <CheckCircle2 size={20} className="text-orange mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="text-xs font-bold text-ink">Relational Persistence &amp; Queries</h4>
-                    <p className="text-xs text-muted mt-0.5">
-                      Model relational schemas, composite keys, query optimization, and join trees.
+                  {(!course.learningObjectives ||
+                    course.learningObjectives.filter(Boolean).length ===
+                      0) && (
+                    <p className="col-span-full text-sm text-muted">
+                      No learning objectives have been added yet.
                     </p>
-                  </div>
+                  )}
                 </div>
-
-                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-canvas border border-line/60">
-                  <CheckCircle2 size={20} className="text-orange mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="text-xs font-bold text-ink">Production Deployments</h4>
-                    <p className="text-xs text-muted mt-0.5">
-                      Build production-ready bundles, manage assets, and deploy containerized services.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Right Column (4 cols) */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            {/* Instructor Details Card */}
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-card flex flex-col gap-4">
-              <h3 className="font-display text-base font-bold text-ink pb-2 border-b border-slate-100">
+          {/* Instructor and milestones */}
+          <div className="flex flex-col gap-6 lg:col-span-4">
+            <div className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-6 shadow-card">
+              <h3 className="border-b border-slate-100 pb-3 font-display text-base font-bold text-ink">
                 Course Instructor
               </h3>
+
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-navy text-white font-bold flex items-center justify-center text-sm shadow-xs">
-                  {course.instructor
-                    .split(" ")
-                    .map((n) => n[0])
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-navy text-sm font-bold text-white">
+                  {instructorName
+                    .split(/\s+/)
+                    .map((part) => part[0])
                     .join("")
                     .slice(0, 2)}
                 </div>
+
                 <div>
-                  <h4 className="text-sm font-bold text-ink">{course.instructor}</h4>
-                  <p className="text-xs text-muted">{course.instructorRole}</p>
+                  <h4 className="text-sm font-bold text-ink">
+                    {instructorName}
+                  </h4>
+
+                  <p className="text-xs text-muted">
+                    {course.instructorRole || "Instructor"}
+                  </p>
                 </div>
               </div>
 
-              <div className="space-y-2.5 pt-2 text-xs">
-                <div className="flex items-center gap-2 text-muted">
-                  <Mail size={14} className="text-navy" />
-                  <a
-                    href={`mailto:${course.instructorEmail}`}
-                    className="text-navy hover:underline font-medium"
-                  >
-                    {course.instructorEmail}
-                  </a>
+              <div className="space-y-3 pt-2 text-xs text-muted">
+                <div className="flex items-center gap-2">
+                  <Mail size={14} className="flex-shrink-0 text-navy" />
+
+                  {course.teacher?.email ? (
+                    <a
+                      href={`mailto:${course.teacher.email}`}
+                      className="break-all font-medium text-navy hover:underline"
+                    >
+                      {course.teacher.email}
+                    </a>
+                  ) : (
+                    <span>Email not provided</span>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 text-muted">
-                  <Clock size={14} className="text-navy" />
-                  <span>Office Hours: Tue/Thu 3:00 - 5:00 PM</span>
+
+                <div className="flex items-start gap-2">
+                  <Clock size={14} className="mt-0.5 flex-shrink-0 text-navy" />
+                  <span>
+                    {course.officeHours || "Office hours not set"}
+                  </span>
                 </div>
-                <div className="flex items-center gap-2 text-muted">
-                  <MapPin size={14} className="text-navy" />
-                  <span>{course.room}</span>
+
+                <div className="flex items-center gap-2">
+                  <MapPin size={14} className="flex-shrink-0 text-navy" />
+                  <span>{course.room || "Room not set"}</span>
                 </div>
               </div>
             </div>
 
-            {/* Quick Milestones Card */}
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-card flex flex-col gap-3">
+            <div className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-6 shadow-card">
               <h3 className="font-display text-base font-bold text-ink">
                 Course Milestones
               </h3>
-              <div className="space-y-3 pt-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted">Total Credits</span>
-                  <span className="font-bold text-ink">{course.credits}.0</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted">Syllabus Covered</span>
-                  <span className="font-bold text-orange">{course.progress}%</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted">Assignments Due</span>
-                  <span className="font-bold text-ink">{courseAssignments.length}</span>
-                </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted">Total Credits</span>
+                <span className="font-bold text-ink">
+                  {course.credits}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted">Assignments Due</span>
+                <span className="font-bold text-ink">
+                  {totalAssignments - completedAssignments}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted">Assignments Completed</span>
+                <span className="font-bold text-ink">
+                  {completedAssignments}
+                </span>
               </div>
             </div>
           </div>
         </div>
       )}
 
-
-      {/* TAB 3: MATERIALS */}
+      {/* Materials */}
       {activeTab === "materials" && (
         <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-display text-xl font-bold text-ink">
-                Course Materials &amp; Lecture Vault
-              </h3>
-              <p className="text-xs text-muted mt-1">
-                Official course slides, code templates, reference cheatsheets, and recordings.
-              </p>
+          <div>
+            <h3 className="font-display text-xl font-bold text-ink">
+              Course Materials &amp; Lecture Vault
+            </h3>
+            <p className="mt-1 text-xs text-muted">
+              Course materials available for this class.
+            </p>
+          </div>
+
+          {materials.length === 0 ? (
+            <div className="rounded-2xl border border-line bg-white p-8 text-center text-sm text-muted">
+              No course materials have been added yet.
             </div>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-navy">
-              {materials.length} files available
-            </span>
-          </div>
-
-          <div className="rounded-2xl border border-line bg-white divide-y divide-slate-100 shadow-card overflow-hidden">
-            {materials.map((mat) => (
-              <div
-                key={mat.id}
-                className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-canvas transition"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-11 h-11 rounded-xl bg-orange/10 text-orange flex items-center justify-center font-bold text-xs flex-shrink-0">
-                    {mat.type}
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="font-bold text-sm text-ink truncate">
-                      {mat.title}
-                    </h4>
-                    <p className="text-xs text-muted mt-0.5">
-                      {mat.type} Document • {mat.size} • Uploaded {mat.date}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleDownload(mat.title)}
-                  className="px-4 py-2 rounded-xl bg-navy hover:bg-navy-hover text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-xs self-stretch sm:self-auto justify-center"
+          ) : (
+            <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-line bg-white shadow-card">
+              {materials.map((material, index) => (
+                <div
+                  key={material.id ?? index}
+                  className="flex flex-col justify-between gap-4 p-5 sm:flex-row sm:items-center"
                 >
-                  <Download size={14} />
-                  <span>Download</span>
-                </button>
-              </div>
-            ))}
-          </div>
+                  <div className="flex items-center gap-3">
+                    <FileText size={22} className="text-orange" />
+                    <div>
+                      <h4 className="text-sm font-bold text-ink">
+                        {material.title}
+                      </h4>
+                      <p className="mt-1 text-xs text-muted">
+                        {material.type || "Course material"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {material.url && (
+                    <a
+                      href={material.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-navy hover:underline"
+                    >
+                      Open material
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* TAB 4: ASSIGNMENTS */}
+      {/* Assignments */}
       {activeTab === "assignments" && (
         <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <h3 className="font-display text-xl font-bold text-ink">
                 Course Assignments
               </h3>
-              <p className="text-xs text-muted mt-1">
-                Lab deliverables, problem sets, and submission portals for {course.title}.
+              <p className="mt-1 text-xs text-muted">
+                Assignments for {course.title}.
               </p>
             </div>
+
             <Link
               to="/student/assignments"
-              className="text-xs font-semibold text-navy hover:text-orange transition"
+              className="text-xs font-semibold text-navy hover:text-orange"
             >
               View All Assignments →
             </Link>
           </div>
 
           {courseAssignments.length === 0 ? (
-            <div className="rounded-2xl border border-line bg-white p-8 text-center text-muted">
-              No assignments currently active for this course.
+            <div className="rounded-2xl border border-line bg-white p-8 text-center text-sm text-muted">
+              No assignments currently available for this course.
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              {courseAssignments.map((a) => (
+              {courseAssignments.map((assignment) => (
                 <div
-                  key={a.id}
-                  className="rounded-2xl border border-line bg-white p-5 shadow-card hover:shadow-lift transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                  key={assignment.id}
+                  className="flex flex-col justify-between gap-4 rounded-2xl border border-line bg-white p-5 shadow-card sm:flex-row sm:items-center"
                 >
-                  <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-                    <div className="w-11 h-11 rounded-xl bg-navy/10 text-navy flex items-center justify-center flex-shrink-0">
-                      <ClipboardList size={22} />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Link
-                          to={`/student/assignments/${a.id}`}
-                          className="font-display text-sm sm:text-base font-bold text-ink hover:text-orange transition-colors truncate"
-                        >
-                          {a.title}
-                        </Link>
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-navy text-[11px] font-semibold">
-                          {a.courseCode}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted mt-1">
-                        <span className="text-orange font-semibold">Due: {a.dueDate}</span>
-                        <span>•</span>
-                        <span>Points: {a.totalPoints}</span>
-                        <span>•</span>
-                        <span>Weight: {a.weight}</span>
-                      </div>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <ClipboardList
+                      size={22}
+                      className="mt-1 flex-shrink-0 text-navy"
+                    />
+
+                    <div className="min-w-0">
+                      <h4 className="font-display text-sm font-bold text-ink">
+                        {assignment.title}
+                      </h4>
+
+                      <p className="mt-1 text-xs text-muted">
+                        {assignment.courseCode || course.code}
+                      </p>
+
+                      <p className="mt-2 text-xs text-orange">
+                        Due: {assignment.dueDate || "Not specified"}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                    {a.status === "Urgent" ? (
-                      <Badge tone="error" dot>Urgent</Badge>
-                    ) : a.status === "Graded" ? (
-                      <Badge tone="success" dot>Graded: {a.score}</Badge>
+                  <div className="flex items-center justify-between gap-3 sm:justify-end">
+                    {assignment.status === "Graded" ? (
+                      <Badge tone="success" dot>
+                        Graded
+                      </Badge>
+                    ) : assignment.status === "Urgent" ? (
+                      <Badge tone="error" dot>
+                        Urgent
+                      </Badge>
                     ) : (
                       <Badge tone="neutral">Pending</Badge>
                     )}
 
                     <button
                       type="button"
-                      onClick={() => navigate(`/student/assignments/${a.id}`)}
-                      className="px-4 py-2 rounded-xl bg-orange hover:bg-orange-hover text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-xs"
+                      onClick={() =>
+                        navigate(`/student/assignments/${assignment.id}`)
+                      }
+                      className="flex items-center gap-1.5 rounded-xl bg-orange px-4 py-2 text-xs font-semibold text-white hover:bg-orange-hover"
                     >
-                      <span>Submit</span>
+                      Submit
                       <ExternalLink size={14} />
                     </button>
                   </div>
@@ -772,49 +945,56 @@ useEffect(() => {
         </div>
       )}
 
-      {/* TAB 5: ANNOUNCEMENTS */}
+      {/* Announcements */}
       {activeTab === "announcements" && (
         <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-display text-xl font-bold text-ink">
-                Course Announcements
-              </h3>
-              <p className="text-xs text-muted mt-1">
-                Official circulars and notices broadcast by {course.instructor}.
-              </p>
-            </div>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-navy">
-              {announcements.length} Notices
-            </span>
+          <div>
+            <h3 className="font-display text-xl font-bold text-ink">
+              Course Announcements
+            </h3>
+            <p className="mt-1 text-xs text-muted">
+              Announcements for {course.title}.
+            </p>
           </div>
 
-          <div className="flex flex-col gap-4">
-            {announcements.map((ann) => (
-              <div
-                key={ann.id}
-                className="rounded-2xl border border-line bg-white p-5 sm:p-6 shadow-card flex flex-col gap-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Megaphone size={18} className="text-orange" />
-                    <h4 className="font-display text-base font-bold text-ink">
-                      {ann.title}
-                    </h4>
+          {announcements.length === 0 ? (
+            <div className="rounded-2xl border border-line bg-white p-8 text-center text-sm text-muted">
+              No announcements have been posted yet.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {announcements.map((announcement, index) => (
+                <div
+                  key={announcement.id ?? index}
+                  className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-5 shadow-card sm:p-6"
+                >
+                  <div className="flex items-start gap-3">
+                    <Megaphone
+                      size={20}
+                      className="mt-1 flex-shrink-0 text-orange"
+                    />
+
+                    <div>
+                      <h4 className="font-display text-base font-bold text-ink">
+                        {announcement.title}
+                      </h4>
+                      <p className="mt-1 text-xs text-muted">
+                        {announcement.date || ""}
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-xs font-semibold text-muted">{ann.date}</span>
+
+                  <p className="text-sm leading-relaxed text-ink">
+                    {announcement.content}
+                  </p>
+
+                  <div className="border-t border-slate-100 pt-3 text-xs text-muted">
+                    {instructorName}
+                  </div>
                 </div>
-                <p className="text-xs sm:text-sm text-ink leading-relaxed">
-                  {ann.content}
-                </p>
-                <div className="pt-2 border-t border-slate-100 text-xs text-muted flex items-center gap-2">
-                  <span className="font-semibold text-navy">{course.instructor}</span>
-                  <span>•</span>
-                  <span>Faculty of {course.department || "Computer Science"}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

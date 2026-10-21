@@ -5,6 +5,7 @@ export const AuthContext = createContext(null);
 
 const STORAGE_KEY = "campushub_auth";
 
+
 function getSavedAuth() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -13,6 +14,7 @@ function getSavedAuth() {
     return null;
   }
 }
+
 
 export function AuthProvider({ children }) {
   const [auth, setAuth] = useState(getSavedAuth);
