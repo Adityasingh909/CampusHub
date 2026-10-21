@@ -14,24 +14,115 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String?
-  email     String   @unique
-  password  String
-  role String @default("STUDENT")
-  createdAt DateTime @default(now())
+  id                    Int                    @id @default(autoincrement())
+  name                  String?
+  email                 String                 @unique
+  password              String
+  role                  String                 @default("STUDENT")
+  createdAt             DateTime               @default(now())
+  coursesTaught         Course[]               @relation("TeacherCourses")
+  enrollments           Enrollment[]
+  assignmentSubmissions AssignmentSubmission[]
 }
-
 
 model PendingRegistration {
-  id           Int      @id @default(autoincrement())
-  name         String
-  email        String   @unique
-  passwordHash String
-  otpHash      String
-  expiresAt    DateTime
-  attempts     Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                    Int                    @id @default(autoincrement())
+  name                  String
+  email                 String                 @unique
+  passwordHash          String
+  otpHash               String
+  expiresAt             DateTime
+  attempts              Int                    @default(0)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  enrollments           Enrollment[]
+  AssignmentSubmissions AssignmentSubmission[]
 }
- 
+
+model Course {
+  id          Int    @id @default(autoincrement())
+  code        String @unique
+  title       String
+  description String @default("")
+  instructor  String @default("")
+  teacherId   Int?
+
+  // Additional course details
+  thumbnail      String @default("")
+  credits        Int    @default(4)
+  category       String @default("In Progress")
+  schedule       String @default("Schedule not set")
+  instructorRole String @default("Instructor")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacher            User?        @relation("TeacherCourses", fields: [teacherId], references: [id], onDelete: SetNull)
+  enrollments        Enrollment[]
+  assignments        Assignment[]
+  officeHours        String       @default("")
+  syllabusUrl        String       @default("")
+  learningObjectives String[]     @default([])
+
+  @@index([teacherId])
+}
+
+model Enrollment {
+  id         Int      @id @default(autoincrement())
+  studentId  Int
+  courseId   Int
+  progress   Int      @default(0)
+  status     String   @default("IN_PROGRESS")
+  enrolledAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  student               User                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course                Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  pendingRegistration   PendingRegistration? @relation(fields: [pendingRegistrationId], references: [id])
+  pendingRegistrationId Int?
+
+  @@unique([studentId, courseId])
+  @@index([studentId])
+  @@index([courseId])
+}
+
+model Assignment {
+  id            Int      @id @default(autoincrement())
+  courseId      Int
+  title         String
+  description   String   @default("")
+  dueDate       DateTime
+  totalPoints   Int      @default(100)
+  attachmentUrl String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  submissions AssignmentSubmission[]
+
+  @@index([courseId, dueDate])
+}
+
+model AssignmentSubmission {
+  id            Int      @id @default(autoincrement())
+  assignmentId  Int
+  studentId     Int
+  content       String   @default("")
+  fileUrl       String?
+  status        String   @default("SUBMITTED")
+  score         Int?
+  submittedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  feedback      String?
+  attachmentUrl String?
+
+  assignment            Assignment           @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student               User                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  pendingRegistration   PendingRegistration? @relation(fields: [pendingRegistrationId], references: [id])
+  pendingRegistrationId Int?
+
+  @@unique([assignmentId, studentId])
+  @@index([status])
+  @@index([studentId])
+}

@@ -29,3 +29,27 @@ exports.authenticate = (req, res, next) => {
     });
   }
 };
+
+
+
+exports.authorizeTeacher = (req, res, next) => {
+  if (req.user.role !== "TEACHER") {
+    return res.status(403).json({
+      success: false,
+      message: "Only teachers can manage courses",
+    });
+  }
+
+  next();
+};
+
+exports.authorizeStudent = (req, res, next) => {
+  if (req.user.role !== "STUDENT") {
+    return res.status(403).json({
+      success: false,
+      message: "Only students can access enrollments",
+    });
+  }
+
+  next();
+};
