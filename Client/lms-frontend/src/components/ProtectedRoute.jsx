@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { api } from "../services/api";
 
 export function ProtectedRoute({ children, role }) {
   const { user, token, signOut } = useAuth();
@@ -20,22 +21,14 @@ export function ProtectedRoute({ children, role }) {
       }
 
       try {
-        const response = await fetch(
-          "http://localhost:2000/api/auth/me",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await api().get("/auth/me", { silent: true });
 
-        if (!response.ok) {
+        if (!response?.success) {
           throw new Error("Session is invalid or expired.");
         }
 
-        const data = await response.json();
-        const backendRole = String(data.user?.role || "").toLowerCase();
-        const savedRole = String(user.role || "").toLowerCase();
+        const backendRole = String(response.user?.role || "").trim().toLowerCase();
+        const savedRole = String(user?.role || "").trim().toLowerCase();
 
         if (!cancelled) {
           if (!backendRole || backendRole !== savedRole) {
@@ -57,7 +50,6 @@ export function ProtectedRoute({ children, role }) {
       }
     }
 
-    setChecking(true);
     validateSession();
 
     return () => {
@@ -67,13 +59,14 @@ export function ProtectedRoute({ children, role }) {
 
   if (checking) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-muted">
-        Checking your session...
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-canvas text-sm text-muted">
+        <span className="h-6 w-6 animate-spin rounded-full border-2 border-line border-t-orange" />
+        <span className="font-medium text-ink">Verifying session...</span>
       </div>
     );
   }
 
-  if (!valid) {
+  if (!valid || !user || !token) {
     return (
       <Navigate
         to="/login"
@@ -83,9 +76,18 @@ export function ProtectedRoute({ children, role }) {
     );
   }
 
-  const actualRole = String(user?.role || "").toLowerCase();
+  const actualRole = String(user?.role || "").trim().toLowerCase();
+  const requiredRole = String(role || "").trim().toLowerCase();
 
-  if (role && actualRole !== role.toLowerCase()) {
+  if (requiredRole && actualRole !== requiredRole) {
+    if (actualRole === "teacher") {
+      return <Navigate to="/teacher/dashboard" replace />;
+    }
+    if (actualRole === "student") {
+      return <Navigate to="/student/dashboard" replace />;
+    }
+
+    signOut();
     return <Navigate to="/login" replace />;
   }
 

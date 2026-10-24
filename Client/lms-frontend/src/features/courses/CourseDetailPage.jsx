@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   BookOpen,
@@ -17,16 +17,18 @@ import {
   AlertCircle,
   ChevronRight,
   ExternalLink,
+  Plus,
+  Loader2,
 } from "lucide-react";
 
 import { AuthContext } from "../../context/AuthContext";
 import { api } from "../../services/api";
-import {
-  assignmentsData,
-  quizzesData,
-} from "../../data/mockLmsData";
 import { Badge } from "../../components/ui/Badge";
+import { Modal } from "../../components/ui/Modal";
 import { useToast } from "../../hooks/useToast";
+import { Skeleton, DetailHeroSkeleton } from "../../components/ui/Skeleton";
+import { CourseAnnouncementsTab } from "./CourseAnnouncementsTab";
+import { getCourseAnnouncements } from "../../services/announcementService";
 
 export function CourseDetailPage() {
   const { courseId } = useParams();
@@ -39,6 +41,8 @@ export function CourseDetailPage() {
   const [fetchError, setFetchError] = useState("");
 
   const [activeTab, setActiveTab] = useState("overview");
+  const [announcementCount, setAnnouncementCount] = useState(null);
+  const [announcementsCountLoading, setAnnouncementsCountLoading] = useState(true);
   const [saved, setSaved] = useState(false);
 
   const [isEditingDetails, setIsEditingDetails] = useState(false);
@@ -52,8 +56,12 @@ export function CourseDetailPage() {
     learningObjectives: "",
   });
 
+  const isTeacher = String(user?.role || "").toUpperCase() === "TEACHER";
+  const coursesPath = isTeacher ? "/teacher/courses" : "/student/courses";
+  const assignmentsPath = isTeacher ? "/teacher/assignments" : "/student/assignments";
+
   const canEditCourse =
-    user?.role === "TEACHER" &&
+    isTeacher &&
     user?.id != null &&
     course?.teacherId != null &&
     Number(user.id) === Number(course.teacherId);
@@ -100,14 +108,53 @@ export function CourseDetailPage() {
         }
 
         if (!cancelled) {
-          setCourse({
+          const loadedCourse = {
             ...foundCourse,
             progress: enrollmentProgress,
             instructor:
               foundCourse.teacher?.name ||
               foundCourse.instructor ||
               "Instructor not assigned",
+          };
+          setCourse(loadedCourse);
+          setDetailsForm({
+            description: loadedCourse.description ?? "",
+            syllabusUrl: loadedCourse.syllabusUrl ?? "",
+            officeHours: loadedCourse.officeHours ?? "",
+            learningObjectives: (
+              loadedCourse.learningObjectives ?? []
+            ).join("\n"),
           });
+
+          // Eagerly load the course announcement count so it is accurate immediately
+          try {
+            setAnnouncementsCountLoading(true);
+            const annResponse = await getCourseAnnouncements(courseId, { silent: true });
+            let list = [];
+            if (Array.isArray(annResponse)) {
+              list = annResponse;
+            } else if (Array.isArray(annResponse?.announcements)) {
+              list = annResponse.announcements;
+            } else if (Array.isArray(annResponse?.data)) {
+              list = annResponse.data;
+            }
+            if (!cancelled) {
+              setAnnouncementCount(list.length);
+            }
+          } catch (annError) {
+            console.warn("Initial announcement count fetch failed:", annError.message);
+            if (!cancelled) {
+              if (Array.isArray(loadedCourse.announcements)) {
+                setAnnouncementCount(loadedCourse.announcements.length);
+              } else {
+                setAnnouncementCount(0);
+              }
+            }
+          } finally {
+            if (!cancelled) {
+              setAnnouncementsCountLoading(false);
+            }
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -127,20 +174,6 @@ export function CourseDetailPage() {
       cancelled = true;
     };
   }, [courseId]);
-
-  // Keep the edit form synchronized with the loaded course.
-  useEffect(() => {
-    if (!course) return;
-
-    setDetailsForm({
-      description: course.description ?? "",
-      syllabusUrl: course.syllabusUrl ?? "",
-      officeHours: course.officeHours ?? "",
-      learningObjectives: (
-        course.learningObjectives ?? []
-      ).join("\n"),
-    });
-  }, [course]);
 
   const updateFormField = (field, value) => {
     setDetailsForm((previous) => ({
@@ -247,36 +280,110 @@ export function CourseDetailPage() {
     }
   };
 
-  // Assignments and quizzes remain mock-backed until their APIs exist.
-  const courseAssignments = useMemo(() => {
-    if (!course) return [];
+  const [courseAssignments, setCourseAssignments] = useState([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [createAssignmentOpen, setCreateAssignmentOpen] = useState(false);
+  const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
+  const [assignmentFormError, setAssignmentFormError] = useState("");
+  const [assignmentReloadKey, setAssignmentReloadKey] = useState(0);
+  const [newAssignment, setNewAssignment] = useState({
+    title: "",
+    description: "",
+    dueDate: "",
+    totalPoints: 100,
+  });
 
-    return (assignmentsData ?? []).filter(
-      (assignment) =>
-        assignment &&
-        (
-          String(assignment.courseId) === String(course.id) ||
-          assignment.courseCode === course.code
-        )
-    );
-  }, [course]);
+  const refetchAssignments = useCallback(() => {
+    setAssignmentReloadKey((prev) => prev + 1);
+  }, []);
 
-  const courseQuizzes = useMemo(() => {
-    if (!course) return [];
+  useEffect(() => {
+    let cancelled = false;
 
-    return (quizzesData ?? []).filter(
-      (quiz) =>
-        String(quiz.courseId) === String(course.id) ||
-        quiz.courseCode === course.code
-    );
-  }, [course]);
+    async function loadAssignments() {
+      if (!courseId) return;
+      try {
+        setAssignmentsLoading(true);
+        if (isTeacher) {
+          const res = await api().get(`/assignments/course/${courseId}`);
+          if (!cancelled) {
+            setCourseAssignments(res?.assignments || []);
+          }
+        } else {
+          const res = await api().get("/assignments/student");
+          const studentAssignments = (res?.assignments || []).filter(
+            (a) => String(a.courseId) === String(courseId)
+          );
+          if (!cancelled) {
+            setCourseAssignments(studentAssignments);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch course assignments:", err.message);
+      } finally {
+        if (!cancelled) {
+          setAssignmentsLoading(false);
+        }
+      }
+    }
+
+    loadAssignments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, isTeacher, assignmentReloadKey]);
+
+  const handleCreateAssignment = async (e) => {
+    e.preventDefault();
+    if (!newAssignment.title.trim()) {
+      setAssignmentFormError("Assignment title is required.");
+      return;
+    }
+    if (!newAssignment.dueDate) {
+      setAssignmentFormError("Due date is required.");
+      return;
+    }
+
+    try {
+      setAssignmentSubmitting(true);
+      setAssignmentFormError("");
+
+      const res = await api().post("/assignments", {
+        title: newAssignment.title.trim(),
+        description: newAssignment.description.trim(),
+        dueDate: new Date(newAssignment.dueDate).toISOString(),
+        totalPoints: Number(newAssignment.totalPoints) || 100,
+        courseId: Number(courseId),
+      });
+
+      if (!res?.success) {
+        throw new Error(res?.message || "Failed to create assignment");
+      }
+
+      toast.show("Assignment created successfully!", "success");
+      setCreateAssignmentOpen(false);
+      setNewAssignment({
+        title: "",
+        description: "",
+        dueDate: "",
+        totalPoints: 100,
+      });
+      refetchAssignments();
+    } catch (err) {
+      setAssignmentFormError(err.message || "Failed to create assignment.");
+    } finally {
+      setAssignmentSubmitting(false);
+    }
+  };
 
   const completedAssignments = courseAssignments.filter(
     (assignment) =>
-      ["COMPLETED", "SUBMITTED", "Graded"].includes(
-        assignment.status
-      ) ||
-      assignment.submissionStatus === "SUBMITTED"
+      assignment.submissionStatus === "SUBMITTED" ||
+      assignment.submissionStatus === "GRADED" ||
+      assignment.status === "SUBMITTED" ||
+      assignment.status === "GRADED" ||
+      assignment.mySubmission
   ).length;
 
   const totalAssignments = courseAssignments.length;
@@ -294,16 +401,45 @@ export function CourseDetailPage() {
     return course.materials ?? [];
   }, [course]);
 
-  const announcements = useMemo(() => {
-    if (!course) return [];
-
-    return course.announcements ?? [];
-  }, [course]);
-
   if (loading) {
     return (
-      <div className="p-8 text-sm text-muted">
-        Loading course details...
+      <div className="flex flex-col gap-6 lg:gap-8 max-w-7xl mx-auto">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-20 rounded-md" />
+          <span className="text-muted">/</span>
+          <Skeleton className="h-4 w-32 rounded-md" />
+        </div>
+
+        <DetailHeroSkeleton />
+
+        <div className="flex gap-2 border-b border-line pb-3">
+          <Skeleton className="h-9 w-24 rounded-lg" />
+          <Skeleton className="h-9 w-24 rounded-lg" />
+          <Skeleton className="h-9 w-24 rounded-lg" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="lg:col-span-8 flex flex-col gap-6">
+            <div className="rounded-2xl border border-line bg-white p-6 shadow-card flex flex-col gap-4">
+              <Skeleton className="h-6 w-40 rounded-md" />
+              <Skeleton className="h-4 w-full rounded-md" />
+              <Skeleton className="h-4 w-5/6 rounded-md" />
+              <Skeleton className="h-4 w-3/4 rounded-md" />
+            </div>
+            <div className="rounded-2xl border border-line bg-white p-6 shadow-card flex flex-col gap-4">
+              <Skeleton className="h-6 w-48 rounded-md" />
+              <Skeleton className="h-4 w-full rounded-md" />
+              <Skeleton className="h-4 w-2/3 rounded-md" />
+            </div>
+          </div>
+          <div className="lg:col-span-4 flex flex-col gap-6">
+            <div className="rounded-2xl border border-line bg-white p-6 shadow-card flex flex-col gap-4">
+              <Skeleton className="h-5 w-32 rounded-md" />
+              <Skeleton className="h-4 w-full rounded-md" />
+              <Skeleton className="h-4 w-4/5 rounded-md" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -323,7 +459,7 @@ export function CourseDetailPage() {
 
         <button
           type="button"
-          onClick={() => navigate("/student/courses")}
+          onClick={() => navigate(coursesPath)}
           className="mt-6 flex items-center gap-2 rounded-xl bg-navy px-5 py-2.5 text-sm font-semibold text-white"
         >
           <ArrowLeft size={16} />
@@ -342,7 +478,7 @@ export function CourseDetailPage() {
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted">
           <Link
-            to="/student/courses"
+            to={coursesPath}
             className="flex items-center gap-1 hover:text-navy"
           >
             <BookOpen size={14} />
@@ -390,9 +526,11 @@ export function CourseDetailPage() {
                 {course.credits} Credits
               </span>
 
-              <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-200">
-                Computer Science &amp; Eng
-              </span>
+              {course.category && (
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-200">
+                  {course.category}
+                </span>
+              )}
             </div>
 
             <h1 className="mb-2 font-display text-2xl font-extrabold tracking-tight sm:text-3xl lg:text-4xl">
@@ -501,8 +639,12 @@ export function CourseDetailPage() {
               )}
 
               {id === "announcements" && (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-ink">
-                  {announcements.length}
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-ink min-w-[20px] inline-flex items-center justify-center">
+                  {announcementsCountLoading ? (
+                    <span className="inline-block h-2 w-2 rounded-full border border-slate-400 border-t-navy animate-spin" />
+                  ) : (
+                    announcementCount ?? 0
+                  )}
                 </span>
               )}
             </button>
@@ -657,9 +799,16 @@ export function CourseDetailPage() {
                       type="button"
                       onClick={handleSaveCourseDetails}
                       disabled={savingDetails}
-                      className="rounded-xl bg-navy px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                      className="rounded-xl bg-navy px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 flex items-center gap-1.5"
                     >
-                      {savingDetails ? "Saving..." : "Save changes"}
+                      {savingDetails ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        "Save changes"
+                      )}
                     </button>
                   </div>
                 </div>
@@ -874,15 +1023,33 @@ export function CourseDetailPage() {
               </p>
             </div>
 
-            <Link
-              to="/student/assignments"
-              className="text-xs font-semibold text-navy hover:text-orange"
-            >
-              View All Assignments →
-            </Link>
+            <div className="flex items-center gap-3">
+              {canEditCourse && (
+                <button
+                  type="button"
+                  onClick={() => setCreateAssignmentOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl bg-orange px-4 py-2 text-xs font-semibold text-white hover:bg-orange-hover shadow-xs transition-colors"
+                >
+                  <Plus size={15} />
+                  <span>Create Assignment</span>
+                </button>
+              )}
+
+              <Link
+                to={assignmentsPath}
+                className="text-xs font-semibold text-navy hover:text-orange transition-colors"
+              >
+                View All Assignments →
+              </Link>
+            </div>
           </div>
 
-          {courseAssignments.length === 0 ? (
+          {assignmentsLoading ? (
+            <div className="flex flex-col items-center justify-center p-12 text-muted gap-2">
+              <Loader2 className="animate-spin text-orange" size={24} />
+              <span className="text-xs">Loading course assignments...</span>
+            </div>
+          ) : courseAssignments.length === 0 ? (
             <div className="rounded-2xl border border-line bg-white p-8 text-center text-sm text-muted">
               No assignments currently available for this course.
             </div>
@@ -905,38 +1072,69 @@ export function CourseDetailPage() {
                       </h4>
 
                       <p className="mt-1 text-xs text-muted">
-                        {assignment.courseCode || course.code}
+                        {course.code} • {assignment.totalPoints || 100} Points
                       </p>
 
                       <p className="mt-2 text-xs text-orange">
-                        Due: {assignment.dueDate || "Not specified"}
+                        Due:{" "}
+                        {assignment.dueDate
+                          ? new Date(assignment.dueDate).toLocaleDateString(
+                              undefined,
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )
+                          : "Not specified"}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between gap-3 sm:justify-end">
-                    {assignment.status === "Graded" ? (
+                    {isTeacher ? (
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-navy font-semibold">
+                        {assignment.totalPoints || 100} pts
+                      </span>
+                    ) : assignment.submissionStatus === "GRADED" ? (
                       <Badge tone="success" dot>
-                        Graded
+                        Graded (
+                        {assignment.mySubmission?.score != null
+                          ? `${assignment.mySubmission.score}/${assignment.totalPoints}`
+                          : "Done"}
+                        )
                       </Badge>
-                    ) : assignment.status === "Urgent" ? (
-                      <Badge tone="error" dot>
-                        Urgent
+                    ) : assignment.submissionStatus === "SUBMITTED" ? (
+                      <Badge tone="warning" dot>
+                        Submitted
                       </Badge>
                     ) : (
                       <Badge tone="neutral">Pending</Badge>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navigate(`/student/assignments/${assignment.id}`)
-                      }
-                      className="flex items-center gap-1.5 rounded-xl bg-orange px-4 py-2 text-xs font-semibold text-white hover:bg-orange-hover"
-                    >
-                      Submit
-                      <ExternalLink size={14} />
-                    </button>
+                    {isTeacher ? (
+                      <Link
+                        to={`/teacher/submissions?assignmentId=${assignment.id}`}
+                        className="flex items-center gap-1.5 rounded-xl bg-navy px-4 py-2 text-xs font-semibold text-white hover:bg-navy-hover transition-colors"
+                      >
+                        Submissions
+                        <ExternalLink size={14} />
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/student/assignments/${assignment.id}`}
+                        className="flex items-center gap-1.5 rounded-xl bg-orange px-4 py-2 text-xs font-semibold text-white hover:bg-orange-hover transition-colors"
+                      >
+                        {assignment.submissionStatus === "GRADED"
+                          ? "View Grade"
+                          : assignment.submissionStatus === "SUBMITTED"
+                          ? "View"
+                          : "Submit"}
+                        <ExternalLink size={14} />
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))}
@@ -947,55 +1145,138 @@ export function CourseDetailPage() {
 
       {/* Announcements */}
       {activeTab === "announcements" && (
-        <div className="flex flex-col gap-6">
-          <div>
-            <h3 className="font-display text-xl font-bold text-ink">
-              Course Announcements
-            </h3>
-            <p className="mt-1 text-xs text-muted">
-              Announcements for {course.title}.
-            </p>
-          </div>
+        <CourseAnnouncementsTab
+          course={course}
+          isTeacher={isTeacher}
+          onCountChange={(count) => {
+            setAnnouncementCount(count);
+            setAnnouncementsCountLoading(false);
+          }}
+        />
+      )}
 
-          {announcements.length === 0 ? (
-            <div className="rounded-2xl border border-line bg-white p-8 text-center text-sm text-muted">
-              No announcements have been posted yet.
+      {/* Create Assignment Modal (Teachers only) */}
+      {canEditCourse && (
+        <Modal
+          open={createAssignmentOpen}
+          onClose={() => {
+            setCreateAssignmentOpen(false);
+            setAssignmentFormError("");
+          }}
+          title={`Create Assignment for ${course.code}`}
+        >
+          <form onSubmit={handleCreateAssignment} className="space-y-4">
+            {assignmentFormError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600">
+                {assignmentFormError}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-ink mb-1">
+                Assignment Title *
+              </label>
+              <input
+                type="text"
+                required
+                value={newAssignment.title}
+                onChange={(e) =>
+                  setNewAssignment((prev) => ({
+                    ...prev,
+                    title: e.target.value,
+                  }))
+                }
+                placeholder="e.g. Lab 4: Relational Normalization"
+                className="w-full rounded-xl border border-line bg-canvas p-2.5 text-sm text-ink outline-none focus:border-navy focus:bg-white"
+              />
             </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {announcements.map((announcement, index) => (
-                <div
-                  key={announcement.id ?? index}
-                  className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-5 shadow-card sm:p-6"
-                >
-                  <div className="flex items-start gap-3">
-                    <Megaphone
-                      size={20}
-                      className="mt-1 flex-shrink-0 text-orange"
-                    />
 
-                    <div>
-                      <h4 className="font-display text-base font-bold text-ink">
-                        {announcement.title}
-                      </h4>
-                      <p className="mt-1 text-xs text-muted">
-                        {announcement.date || ""}
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="text-sm leading-relaxed text-ink">
-                    {announcement.content}
-                  </p>
-
-                  <div className="border-t border-slate-100 pt-3 text-xs text-muted">
-                    {instructorName}
-                  </div>
-                </div>
-              ))}
+            <div>
+              <label className="block text-xs font-semibold text-ink mb-1">
+                Instructions / Description
+              </label>
+              <textarea
+                rows={3}
+                value={newAssignment.description}
+                onChange={(e) =>
+                  setNewAssignment((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                placeholder="Detail what students must complete and submit..."
+                className="w-full rounded-xl border border-line bg-canvas p-2.5 text-sm text-ink outline-none focus:border-navy focus:bg-white"
+              />
             </div>
-          )}
-        </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-ink mb-1">
+                  Due Date &amp; Time *
+                </label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={newAssignment.dueDate}
+                  onChange={(e) =>
+                    setNewAssignment((prev) => ({
+                      ...prev,
+                      dueDate: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-line bg-canvas p-2.5 text-xs text-ink outline-none focus:border-navy focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-ink mb-1">
+                  Total Points
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={newAssignment.totalPoints}
+                  onChange={(e) =>
+                    setNewAssignment((prev) => ({
+                      ...prev,
+                      totalPoints: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-line bg-canvas p-2.5 text-sm text-ink outline-none focus:border-navy focus:bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCreateAssignmentOpen(false);
+                  setAssignmentFormError("");
+                }}
+                disabled={assignmentSubmitting}
+                className="rounded-xl border border-line px-4 py-2 text-xs font-semibold text-muted hover:text-ink transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={assignmentSubmitting}
+                className="rounded-xl bg-orange hover:bg-orange-hover px-5 py-2 text-xs font-semibold text-white shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {assignmentSubmitting ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Assignment"
+                )}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

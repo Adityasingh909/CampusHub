@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { PasswordInput } from "../../components/ui/PasswordInput";
@@ -76,18 +76,21 @@ export function LoginPage() {
         throw new Error(response?.message || "Invalid login response.");
       }
 
+      const rawRole = String(response.user.role || "STUDENT").toUpperCase();
+      const isTeacher = rawRole === "TEACHER";
+
       // Pass the real backend user and token to the auth context.
       signIn({
         ...response.user,
-        role: String(response.user.role || "STUDENT").toLowerCase(),
-        subtitle: "Computer Science & Eng",
+        role: rawRole,
+        subtitle: isTeacher
+          ? "Faculty / Instructor"
+          : response.user?.program || response.user?.email || "Student",
         token: response.token,
       });
 
-      const role = String(response.user.role || "STUDENT").toLowerCase();
-
       navigate(
-        role === "teacher" ? "/teacher/dashboard" : "/student/dashboard",
+        isTeacher ? "/teacher/dashboard" : "/student/dashboard",
         { replace: true }
       );
     } catch (err) {
@@ -157,8 +160,17 @@ export function LoginPage() {
           className="w-full"
           disabled={loading}
         >
-          {loading ? "Signing in..." : "Sign in to CampusHub"}
-          {!loading && <ArrowRight size={16} />}
+          {loading ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              <span>Signing in...</span>
+            </>
+          ) : (
+            <>
+              <span>Sign in to CampusHub</span>
+              <ArrowRight size={16} />
+            </>
+          )}
         </Button>
       </form>
 

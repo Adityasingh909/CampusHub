@@ -34,10 +34,8 @@ export const teacherNav = [
     label: "Submissions & Grading",
     to: "/teacher/submissions",
     icon: FileCheck2,
-    badge: 14,
   },
   { label: "Quiz Management", to: "/teacher/quizzes", icon: FileQuestion },
-  { label: "Private Uploads", to: "/teacher/uploads", icon: CloudUpload },
   { label: "Profile", to: "/teacher/profile", icon: UserRound },
 ];
 

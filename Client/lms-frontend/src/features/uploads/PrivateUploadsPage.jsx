@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Cloud,
@@ -8,6 +8,7 @@ import {
   Folder,
   FolderPlus,
   FolderArchive,
+  FolderInput,
   FileText,
   Code,
   Image,
@@ -21,23 +22,31 @@ import {
   ArrowUpDown,
   RotateCcw,
   AlertTriangle,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import {
-  getSavedPrivateFiles,
-  savePrivateFilesToStorage,
-  getSavedFolders,
-  saveFoldersToStorage,
-} from "../../data/mockLmsData";
+  getPrivateFiles,
+  uploadPrivateFile,
+  getPrivateFileDownload,
+  deletePrivateFile,
+  movePrivateFile,
+  getPrivateFolders,
+  createPrivateFolder,
+} from "../../services/privateFileService";
 import { Modal } from "../../components/ui/Modal";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { useToast } from "../../hooks/useToast";
 
-function getFileType(filename = "") {
-  const ext = filename.split(".").pop().toLowerCase();
-  if (["pdf"].includes(ext)) return "pdf";
-  if (["doc", "docx"].includes(ext)) return "doc";
-  if (["c", "cpp", "py", "js", "jsx", "ts", "tsx", "html", "css", "json", "java"].includes(ext)) return "code";
-  if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) return "image";
-  if (["zip", "tar", "gz", "rar", "7z"].includes(ext)) return "archive";
+function getFileType(filename = "", mimeType = "") {
+  const ext = (filename.split(".").pop() || "").toLowerCase();
+  const mime = (mimeType || "").toLowerCase();
+
+  if (["pdf"].includes(ext) || mime.includes("pdf")) return "pdf";
+  if (["doc", "docx", "odt", "rtf", "txt"].includes(ext) || mime.includes("word") || mime.includes("text")) return "doc";
+  if (["c", "cpp", "py", "js", "jsx", "ts", "tsx", "html", "css", "json", "java", "sql", "sh"].includes(ext)) return "code";
+  if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext) || mime.includes("image")) return "image";
+  if (["zip", "tar", "gz", "rar", "7z"].includes(ext) || mime.includes("zip") || mime.includes("archive")) return "archive";
   return "file";
 }
 
@@ -49,35 +58,115 @@ function formatBytes(bytes) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
+function formatDate(isoString) {
+  if (!isoString) return "Recently";
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return String(isoString);
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return String(isoString);
+  }
+}
+
 export function PrivateUploadsPage() {
   const toast = useToast();
   const [searchParams] = useSearchParams();
 
-  // Load files & folders from localStorage
-  const [files, setFiles] = useState(() => getSavedPrivateFiles());
-  const [folders, setFolders] = useState(() => getSavedFolders());
+  // Data state
+  const [files, setFiles] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") || "");
-  const [selectedFolder, setSelectedFolder] = useState("All");
+  const [selectedFolder, setSelectedFolder] = useState("All"); // "All" | "root" | number
   const [selectedType, setSelectedType] = useState("all");
   const [sortBy, setSortBy] = useState("date-desc");
   const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
 
-  // Modals state
+  // Folder creation modal state
   const [newFolderModalOpen, setNewFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [creatingFolder, setCreatingFolder] = useState(false);
+
+  // Delete modal state
   const [fileToDelete, setFileToDelete] = useState(null);
+  const [deletingFile, setDeletingFile] = useState(false);
+
+  // Move file modal state
+  const [fileToMove, setFileToMove] = useState(null);
+  const [targetFolderId, setTargetFolderId] = useState("root");
+  const [movingFile, setMovingFile] = useState(false);
 
   // Upload dropzone state
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null); // null or number
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Fetch files and folders on mount / reload
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const [filesRes, foldersRes] = await Promise.all([
+          getPrivateFiles(),
+          getPrivateFolders(),
+        ]);
+
+        if (cancelled) return;
+
+        const fileList = Array.isArray(filesRes?.files)
+          ? filesRes.files
+          : Array.isArray(filesRes)
+          ? filesRes
+          : [];
+
+        const folderList = Array.isArray(foldersRes?.folders)
+          ? foldersRes.folders
+          : Array.isArray(foldersRes)
+          ? foldersRes
+          : [];
+
+        setFiles(fileList);
+        setFolders(folderList);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message || "Failed to retrieve your private files.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  const handleRetry = useCallback(() => {
+    setReloadKey((k) => k + 1);
+  }, []);
 
   // Storage Quota (100 MB Limit)
   const TOTAL_QUOTA_BYTES = 100 * 1024 * 1024;
   const usedBytes = useMemo(() => {
-    return files.reduce((acc, f) => acc + (f.sizeBytes || 1024 * 1024), 0);
+    return files.reduce((acc, f) => acc + (Number(f.size) || 0), 0);
   }, [files]);
   const usedMB = (usedBytes / (1024 * 1024)).toFixed(1);
   const quotaPercent = Math.min(100, Math.round((usedBytes / TOTAL_QUOTA_BYTES) * 100 * 10) / 10);
@@ -86,39 +175,55 @@ export function PrivateUploadsPage() {
   const filteredFiles = useMemo(() => {
     return files
       .filter((file) => {
-        const matchesFolder = selectedFolder === "All" || file.folder === selectedFolder;
-        const matchesType = selectedType === "all" || file.type === selectedType;
+        const matchesFolder =
+          selectedFolder === "All" ||
+          (selectedFolder === "root" && (file.folderId === null || file.folderId === undefined)) ||
+          file.folderId === Number(selectedFolder);
+
+        const type = getFileType(file.originalName, file.mimeType);
+        const matchesType = selectedType === "all" || type === selectedType;
+
         const query = searchQuery.trim().toLowerCase();
+        const folderName =
+          folders.find((f) => f.id === file.folderId)?.name || "Root Directory";
+
         const matchesQuery =
           !query ||
-          file.name.toLowerCase().includes(query) ||
-          file.folder.toLowerCase().includes(query);
+          (file.originalName && file.originalName.toLowerCase().includes(query)) ||
+          folderName.toLowerCase().includes(query);
+
         return matchesFolder && matchesType && matchesQuery;
       })
       .sort((a, b) => {
         if (sortBy === "date-desc") {
-          return (b.id || "").localeCompare(a.id || "");
+          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
         }
         if (sortBy === "name-asc") {
-          return a.name.localeCompare(b.name);
+          return (a.originalName || "").localeCompare(b.originalName || "");
         }
         if (sortBy === "size-desc") {
-          return (b.sizeBytes || 0) - (a.sizeBytes || 0);
+          return (b.size || 0) - (a.size || 0);
         }
         return 0;
       });
-  }, [files, selectedFolder, selectedType, searchQuery, sortBy]);
+  }, [files, folders, selectedFolder, selectedType, searchQuery, sortBy]);
 
-  // Statistics
-  const pdfCount = useMemo(() => files.filter((f) => f.type === "pdf").length, [files]);
-  const docCount = useMemo(() => files.filter((f) => f.type === "doc").length, [files]);
+  // Document type counters
+  const pdfCount = useMemo(
+    () => files.filter((f) => getFileType(f.originalName, f.mimeType) === "pdf").length,
+    [files]
+  );
+  const docCount = useMemo(
+    () => files.filter((f) => getFileType(f.originalName, f.mimeType) === "doc").length,
+    [files]
+  );
 
   // Handle file selection / upload
-  function handleFilesPicked(fileList) {
+  async function handleFilesPicked(fileList) {
     if (!fileList || fileList.length === 0) return;
     const picked = Array.from(fileList);
 
-    // Validate size (max 25 MB)
+    // Validate size (max 25 MB per backend limit)
     const MAX_SIZE = 25 * 1024 * 1024;
     const oversized = picked.find((f) => f.size > MAX_SIZE);
     if (oversized) {
@@ -126,86 +231,40 @@ export function PrivateUploadsPage() {
       return;
     }
 
-    // Check duplicate name
-    const existing = files.find((f) => f.name.toLowerCase() === picked[0].name.toLowerCase());
-    if (existing) {
-      toast.show(`A file named "${picked[0].name}" already exists in your locker.`, "warning");
-    }
-
-    // Simulate upload progress
-    setUploadProgress(15);
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return 90;
-        }
-        return prev + 25;
-      });
-    }, 120);
-
-    // Read file for local in-browser download capability
     const target = picked[0];
-    const reader = new FileReader();
 
-    reader.onload = () => {
-      clearInterval(interval);
+    try {
+      setIsUploading(true);
+      setUploadProgress(10);
+
+      const formData = new FormData();
+      formData.append("file", target);
+
+      // Include folderId if a specific folder is currently selected
+      if (selectedFolder !== "All" && selectedFolder !== "root") {
+        formData.append("folderId", String(selectedFolder));
+      }
+
+      const res = await uploadPrivateFile(formData, {
+        onUploadProgress: (percent) => setUploadProgress(percent),
+      });
+
       setUploadProgress(100);
-
-      const targetFolder = selectedFolder === "All" ? "Project Drafts" : selectedFolder;
-      const newFileRecord = {
-        id: `file-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        name: target.name,
-        folder: targetFolder,
-        type: getFileType(target.name),
-        size: formatBytes(target.size),
-        sizeBytes: target.size,
-        updatedAt: "Just now",
-        dataUrl: reader.result, // Preserves file content for downloads
-      };
+      toast.show(res?.message || `"${target.name}" uploaded successfully.`, "success");
 
       setTimeout(() => {
-        setFiles((prev) => {
-          const next = [newFileRecord, ...prev];
-          savePrivateFilesToStorage(next);
-          return next;
-        });
         setUploadProgress(null);
-        toast.show(`"${target.name}" uploaded to ${targetFolder}.`, "success");
-      }, 300);
-    };
+      }, 500);
 
-    reader.onerror = () => {
-      clearInterval(interval);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
       setUploadProgress(null);
-      toast.show("Could not read file from your device.", "error");
-    };
-
-    // Read small files as DataURL, otherwise simulate metadata
-    if (target.size < 5 * 1024 * 1024) {
-      reader.readAsDataURL(target);
-    } else {
-      setTimeout(() => {
-        clearInterval(interval);
-        setUploadProgress(100);
-        const targetFolder = selectedFolder === "All" ? "Project Drafts" : selectedFolder;
-        const newFileRecord = {
-          id: `file-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          name: target.name,
-          folder: targetFolder,
-          type: getFileType(target.name),
-          size: formatBytes(target.size),
-          sizeBytes: target.size,
-          updatedAt: "Just now",
-        };
-        setFiles((prev) => {
-          const next = [newFileRecord, ...prev];
-          savePrivateFilesToStorage(next);
-          return next;
-        });
-        setUploadProgress(null);
-        toast.show(`"${target.name}" stored in ${targetFolder}.`, "success");
-      }, 600);
+      toast.show(err.message || "Could not upload file.", "error");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   }
 
@@ -224,59 +283,98 @@ export function PrivateUploadsPage() {
     handleFilesPicked(e.dataTransfer.files);
   }
 
-  // Download Handler (Works with real browser download)
-  function handleDownload(file) {
-    toast.show(`Preparing download for ${file.name}...`, "info");
-    if (file.dataUrl) {
-      const a = document.createElement("a");
-      a.href = file.dataUrl;
-      a.download = file.name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } else {
-      // Mock baseline file download via synthetic blob
-      const content = `CampusHub LMS — Private Academic Locker\n\nFilename: ${file.name}\nFolder: ${file.folder}\nType: ${file.type.toUpperCase()}\nSize: ${file.size}\nDate: ${file.updatedAt}\n\nThis is a verified academic file stored inside your private student vault.\nInstitutional Encryption Status: Active (Simulated Local Storage)`;
-      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.name.endsWith(".txt") ? file.name : `${file.name}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+  // Download Handler via Signed URL
+  async function handleDownload(file) {
+    try {
+      toast.show(`Requesting download link for "${file.originalName}"...`, "info");
+      const res = await getPrivateFileDownload(file.id);
+
+      if (res?.downloadUrl) {
+        const a = document.createElement("a");
+        a.href = res.downloadUrl;
+        a.setAttribute("download", file.originalName);
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        throw new Error("Download URL could not be generated.");
+      }
+    } catch (err) {
+      toast.show(err.message || "Failed to generate download link.", "error");
     }
   }
 
   // Delete Handler
-  function confirmDeleteFile() {
+  async function confirmDeleteFile() {
     if (!fileToDelete) return;
-    setFiles((prev) => {
-      const next = prev.filter((f) => f.id !== fileToDelete.id);
-      savePrivateFilesToStorage(next);
-      return next;
-    });
-    toast.show(`Deleted "${fileToDelete.name}".`, "success");
-    setFileToDelete(null);
+
+    try {
+      setDeletingFile(true);
+      await deletePrivateFile(fileToDelete.id);
+      toast.show(`Deleted "${fileToDelete.originalName}".`, "success");
+      setFileToDelete(null);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      toast.show(err.message || "Failed to delete file.", "error");
+    } finally {
+      setDeletingFile(false);
+    }
   }
 
-  // Create New Folder
-  function handleCreateFolder(e) {
+  // Create New Folder Handler
+  async function handleCreateFolder(e) {
     e.preventDefault();
     const trimmed = newFolderName.trim();
     if (!trimmed) return;
-    if (folders.includes(trimmed)) {
-      toast.show(`Folder "${trimmed}" already exists.`, "warning");
+
+    if (trimmed.length > 100) {
+      toast.show("Folder name must be 100 characters or fewer.", "warning");
       return;
     }
-    const nextFolders = [...folders, trimmed];
-    setFolders(nextFolders);
-    saveFoldersToStorage(nextFolders);
-    setSelectedFolder(trimmed);
-    setNewFolderName("");
-    setNewFolderModalOpen(false);
-    toast.show(`Created folder "${trimmed}".`, "success");
+
+    try {
+      setCreatingFolder(true);
+      const res = await createPrivateFolder(trimmed);
+      toast.show(res?.message || `Created folder "${trimmed}".`, "success");
+      setNewFolderName("");
+      setNewFolderModalOpen(false);
+
+      if (res?.folder?.id) {
+        setSelectedFolder(res.folder.id);
+      }
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      toast.show(err.message || "Failed to create folder.", "error");
+    } finally {
+      setCreatingFolder(false);
+    }
+  }
+
+  // Open Move Modal
+  function handleOpenMove(file) {
+    setFileToMove(file);
+    setTargetFolderId(file.folderId ? String(file.folderId) : "root");
+  }
+
+  // Move File Handler
+  async function handleConfirmMoveFile(e) {
+    e.preventDefault();
+    if (!fileToMove) return;
+
+    try {
+      setMovingFile(true);
+      const folderId = targetFolderId === "root" || targetFolderId === "" ? null : Number(targetFolderId);
+      const res = await movePrivateFile(fileToMove.id, folderId);
+      toast.show(res?.message || "File moved successfully.", "success");
+      setFileToMove(null);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      toast.show(err.message || "Failed to move file.", "error");
+    } finally {
+      setMovingFile(false);
+    }
   }
 
   // Reset Filters
@@ -287,7 +385,7 @@ export function PrivateUploadsPage() {
     setSortBy("date-desc");
   }
 
-  // Get File Type Icon
+  // Render File Type Icon
   function renderTypeIcon(type) {
     switch (type) {
       case "pdf":
@@ -329,6 +427,13 @@ export function PrivateUploadsPage() {
     }
   }
 
+  const activeFolderName = useMemo(() => {
+    if (selectedFolder === "All") return "All Files";
+    if (selectedFolder === "root") return "Root Directory";
+    const found = folders.find((f) => f.id === Number(selectedFolder));
+    return found ? found.name : "Selected Folder";
+  }, [selectedFolder, folders]);
+
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto">
       {/* Top Breadcrumb & Storage Quota Hero Card */}
@@ -358,7 +463,7 @@ export function PrivateUploadsPage() {
           <div className="flex flex-col min-w-[180px]">
             <div className="flex items-center justify-between text-xs font-bold">
               <span className="text-ink">Storage Quota</span>
-              <span className="text-orange">{quotaPercent}%</span>
+              <span className="text-orange">{loading ? "..." : `${quotaPercent}%`}</span>
             </div>
             <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden mt-1.5">
               <div
@@ -367,7 +472,7 @@ export function PrivateUploadsPage() {
               />
             </div>
             <span className="text-[11px] text-muted mt-1 font-medium">
-              {usedMB} MB of 100 MB used
+              {loading ? "Calculating storage..." : `${usedMB} MB of 100 MB used`}
             </span>
           </div>
         </div>
@@ -386,12 +491,12 @@ export function PrivateUploadsPage() {
                 Total Documents
               </span>
               <span className="font-display text-xl sm:text-2xl font-bold text-ink">
-                {files.length} Files
+                {loading ? "..." : `${files.length} Files`}
               </span>
             </div>
           </div>
           <span className="text-xs font-semibold text-muted bg-slate-100 px-2.5 py-1 rounded-lg">
-            {pdfCount} PDF, {docCount} Doc
+            {loading ? "..." : `${pdfCount} PDF, ${docCount} Doc`}
           </span>
         </div>
 
@@ -406,7 +511,7 @@ export function PrivateUploadsPage() {
                 Active Folders
               </span>
               <span className="font-display text-xl sm:text-2xl font-bold text-ink">
-                {folders.filter((f) => f !== "All").length} Directories
+                {loading ? "..." : `${folders.length} Directories`}
               </span>
             </div>
           </div>
@@ -450,16 +555,22 @@ export function PrivateUploadsPage() {
             <input
               type="file"
               ref={fileInputRef}
+              disabled={isUploading}
               onChange={(e) => handleFilesPicked(e.target.files)}
               className="hidden"
             />
             <button
               type="button"
+              disabled={isUploading}
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 bg-orange hover:bg-orange-hover text-white px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm shadow-xs transition"
+              className="flex items-center gap-2 bg-orange hover:bg-orange-hover text-white px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm shadow-xs transition disabled:opacity-50"
             >
-              <FileUp size={16} />
-              <span>Upload File</span>
+              {isUploading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <FileUp size={16} />
+              )}
+              <span>{isUploading ? "Uploading..." : "Upload File"}</span>
             </button>
 
             <button
@@ -522,7 +633,7 @@ export function PrivateUploadsPage() {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => !isUploading && fileInputRef.current?.click()}
           className={`group relative rounded-2xl border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
             isDragging
               ? "border-orange bg-orange/5 scale-[0.99]"
@@ -539,7 +650,7 @@ export function PrivateUploadsPage() {
                 <span className="text-orange underline font-semibold">browse device</span>
               </p>
               <p className="text-xs text-muted mt-1">
-                Supports PDF, DOCX, ZIP, Code, Images • Maximum upload size: 25 MB per file
+                Target: <span className="font-semibold text-navy">{activeFolderName}</span> • Max upload size: 25 MB per file
               </p>
             </div>
           </div>
@@ -548,7 +659,7 @@ export function PrivateUploadsPage() {
           {uploadProgress !== null && (
             <div className="mt-4 max-w-xs mx-auto">
               <div className="flex items-center justify-between text-xs font-semibold mb-1 text-ink">
-                <span>Storing in institutional vault...</span>
+                <span>Uploading to institutional vault...</span>
                 <span>{uploadProgress}%</span>
               </div>
               <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
@@ -566,25 +677,65 @@ export function PrivateUploadsPage() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             {/* Folder Tabs */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {/* "All" Filter */}
+              <button
+                type="button"
+                onClick={() => setSelectedFolder("All")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
+                  selectedFolder === "All"
+                    ? "bg-navy text-white shadow-xs"
+                    : "bg-slate-100 text-muted hover:text-ink"
+                }`}
+              >
+                <span>All Files</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    selectedFolder === "All" ? "bg-white/20 text-white" : "bg-white text-muted"
+                  }`}
+                >
+                  {files.length}
+                </span>
+              </button>
+
+              {/* "Root / Unfiled" Filter */}
+              <button
+                type="button"
+                onClick={() => setSelectedFolder("root")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
+                  selectedFolder === "root"
+                    ? "bg-navy text-white shadow-xs"
+                    : "bg-slate-100 text-muted hover:text-ink"
+                }`}
+              >
+                <span>Root</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    selectedFolder === "root" ? "bg-white/20 text-white" : "bg-white text-muted"
+                  }`}
+                >
+                  {files.filter((f) => f.folderId === null || f.folderId === undefined).length}
+                </span>
+              </button>
+
+              {/* User Folders */}
               {folders.map((folder) => {
-                const isSelected = selectedFolder === folder;
+                const isSelected = selectedFolder === folder.id;
                 const count =
-                  folder === "All"
-                    ? files.length
-                    : files.filter((f) => f.folder === folder).length;
+                  folder.fileCount ??
+                  files.filter((f) => f.folderId === folder.id).length;
 
                 return (
                   <button
-                    key={folder}
+                    key={folder.id}
                     type="button"
-                    onClick={() => setSelectedFolder(folder)}
+                    onClick={() => setSelectedFolder(folder.id)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
                       isSelected
                         ? "bg-navy text-white shadow-xs"
                         : "bg-slate-100 text-muted hover:text-ink"
                     }`}
                   >
-                    <span>{folder}</span>
+                    <span>{folder.name}</span>
                     <span
                       className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                         isSelected ? "bg-white/20 text-white" : "bg-white text-muted"
@@ -623,8 +774,46 @@ export function PrivateUploadsPage() {
           </div>
         </div>
 
+        {/* Error State with Retry */}
+        {!loading && error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50/50 p-8 text-center max-w-xl mx-auto my-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3">
+              <AlertCircle size={24} />
+            </div>
+            <h4 className="text-base font-bold text-ink">Failed to Load Files</h4>
+            <p className="text-xs sm:text-sm text-muted mt-1 mb-4 leading-relaxed">
+              {error}
+            </p>
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="px-4 py-2 rounded-xl bg-navy text-white text-xs font-semibold hover:bg-navy-hover transition inline-flex items-center gap-1.5 shadow-sm"
+            >
+              <RotateCcw size={14} />
+              <span>Retry</span>
+            </button>
+          </div>
+        )}
+
+        {/* Loading Skeletons */}
+        {loading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="p-4 rounded-2xl border border-line bg-white flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="w-10 h-10 rounded-xl" />
+                  <Skeleton className="w-14 h-7 rounded-lg" />
+                </div>
+                <Skeleton className="h-4 w-3/4 rounded-md" />
+                <Skeleton className="h-3 w-1/2 rounded-md" />
+                <Skeleton className="h-4 w-full rounded-md mt-2" />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Files View: Grid or List */}
-        {filteredFiles.length === 0 ? (
+        {!loading && !error && filteredFiles.length === 0 ? (
           <div className="rounded-2xl border border-line bg-canvas p-10 text-center flex flex-col items-center">
             <div className="w-12 h-12 rounded-2xl bg-slate-100 text-muted flex items-center justify-center mb-3">
               <File size={24} />
@@ -646,67 +835,84 @@ export function PrivateUploadsPage() {
               </button>
             )}
           </div>
-        ) : viewMode === "grid" ? (
+        ) : !loading && !error && viewMode === "grid" ? (
           /* GRID VIEW */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {filteredFiles.map((file) => (
-              <div
-                key={file.id}
-                className="group flex flex-col justify-between p-4 rounded-2xl border border-line bg-white hover:border-slate-300 hover:shadow-card transition-all"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    {renderTypeIcon(file.type)}
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleDownload(file)}
-                        className="p-1.5 rounded-lg text-muted hover:text-navy hover:bg-slate-100 transition"
-                        title="Download file"
+            {filteredFiles.map((file) => {
+              const fileType = getFileType(file.originalName, file.mimeType);
+              const folderName =
+                folders.find((f) => f.id === file.folderId)?.name || "Root Directory";
+
+              return (
+                <div
+                  key={file.id}
+                  className="group flex flex-col justify-between p-4 rounded-2xl border border-line bg-white hover:border-slate-300 hover:shadow-card transition-all"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      {renderTypeIcon(fileType)}
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenMove(file)}
+                          className="p-1.5 rounded-lg text-muted hover:text-navy hover:bg-slate-100 transition"
+                          title="Move to folder"
+                          aria-label="Move file"
+                        >
+                          <FolderInput size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(file)}
+                          className="p-1.5 rounded-lg text-muted hover:text-navy hover:bg-slate-100 transition"
+                          title="Download file"
+                          aria-label="Download file"
+                        >
+                          <Download size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFileToDelete(file)}
+                          className="p-1.5 rounded-lg text-muted hover:text-rose-600 hover:bg-rose-50 transition"
+                          title="Delete file"
+                          aria-label="Delete file"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-col">
+                      <span
+                        className="font-bold text-xs text-ink truncate block"
+                        title={file.originalName}
                       >
-                        <Download size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFileToDelete(file)}
-                        className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-rose-50 transition"
-                        title="Delete file"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                        {file.originalName}
+                      </span>
+                      <span className="text-[11px] text-muted mt-0.5">
+                        {formatBytes(file.size)} • {formatDate(file.createdAt)}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="mt-3 flex flex-col">
-                    <span
-                      className="font-bold text-xs text-ink truncate block"
-                      title={file.name}
+                  <div className="mt-4 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                    <span className="text-muted font-medium bg-canvas px-2 py-0.5 rounded-md truncate max-w-[130px]" title={folderName}>
+                      {folderName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(file)}
+                      className="text-xs font-bold text-navy hover:text-orange transition flex items-center gap-0.5"
                     >
-                      {file.name}
-                    </span>
-                    <span className="text-[11px] text-muted mt-0.5">
-                      {file.size} • {file.updatedAt}
-                    </span>
+                      <span>Get</span>
+                      <ChevronRight size={13} />
+                    </button>
                   </div>
                 </div>
-
-                <div className="mt-4 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                  <span className="text-muted font-medium bg-canvas px-2 py-0.5 rounded-md truncate max-w-[130px]">
-                    {file.folder}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleDownload(file)}
-                    className="text-xs font-bold text-navy hover:text-orange transition flex items-center gap-0.5"
-                  >
-                    <span>Get</span>
-                    <ChevronRight size={13} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        ) : (
+        ) : !loading && !error ? (
           /* LIST VIEW */
           <div className="overflow-x-auto border border-line rounded-2xl">
             <table className="w-full text-left text-xs border-collapse">
@@ -720,56 +926,73 @@ export function PrivateUploadsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredFiles.map((file) => (
-                  <tr key={file.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        {renderTypeIcon(file.type)}
-                        <span className="font-semibold text-ink truncate max-w-xs" title={file.name}>
-                          {file.name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-muted font-medium">{file.folder}</td>
-                    <td className="py-3 px-4 text-muted font-semibold">{file.size}</td>
-                    <td className="py-3 px-4 text-muted">{file.updatedAt}</td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleDownload(file)}
-                          className="p-1.5 rounded-lg text-muted hover:text-navy hover:bg-slate-100 transition"
-                          title="Download"
-                        >
-                          <Download size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFileToDelete(file)}
-                          className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-rose-50 transition"
-                          title="Delete"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filteredFiles.map((file) => {
+                  const fileType = getFileType(file.originalName, file.mimeType);
+                  const folderName =
+                    folders.find((f) => f.id === file.folderId)?.name || "Root Directory";
+
+                  return (
+                    <tr key={file.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          {renderTypeIcon(fileType)}
+                          <span className="font-semibold text-ink truncate max-w-xs" title={file.originalName}>
+                            {file.originalName}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-muted font-medium">{folderName}</td>
+                      <td className="py-3 px-4 text-muted font-semibold">{formatBytes(file.size)}</td>
+                      <td className="py-3 px-4 text-muted">{formatDate(file.createdAt)}</td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMove(file)}
+                            className="p-1.5 rounded-lg text-muted hover:text-navy hover:bg-slate-100 transition"
+                            title="Move to folder"
+                            aria-label="Move file"
+                          >
+                            <FolderInput size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(file)}
+                            className="p-1.5 rounded-lg text-muted hover:text-navy hover:bg-slate-100 transition"
+                            title="Download"
+                            aria-label="Download file"
+                          >
+                            <Download size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFileToDelete(file)}
+                            className="p-1.5 rounded-lg text-muted hover:text-rose-600 hover:bg-rose-50 transition"
+                            title="Delete"
+                            aria-label="Delete file"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
 
         {/* Institutional Vault Security Banner */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs text-muted">
           <div className="flex items-center gap-2">
             <Lock size={15} className="text-orange" />
             <span>
-              Institutional Encryption: All personal documents are stored securely in your private browser vault.
+              Institutional Encryption: All personal documents are stored securely in your private cloud locker.
             </span>
           </div>
           <span className="text-[11px] bg-slate-100 px-2.5 py-1 rounded-lg font-medium text-navy">
-            Zero Server Telemetry (Phase 6 Simulated)
+            Private Cloud Storage (Cloudflare R2)
           </span>
         </div>
       </div>
@@ -778,8 +1001,10 @@ export function PrivateUploadsPage() {
       <Modal
         open={newFolderModalOpen}
         onClose={() => {
-          setNewFolderModalOpen(false);
-          setNewFolderName("");
+          if (!creatingFolder) {
+            setNewFolderModalOpen(false);
+            setNewFolderName("");
+          }
         }}
         title="Create New Directory"
       >
@@ -795,6 +1020,7 @@ export function PrivateUploadsPage() {
               id="folderNameInput"
               type="text"
               required
+              maxLength={100}
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               placeholder="e.g. Machine Learning Lab Drafts"
@@ -805,6 +1031,7 @@ export function PrivateUploadsPage() {
           <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-100">
             <button
               type="button"
+              disabled={creatingFolder}
               onClick={() => {
                 setNewFolderModalOpen(false);
                 setNewFolderName("");
@@ -815,9 +1042,17 @@ export function PrivateUploadsPage() {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-orange hover:bg-orange-hover text-white transition shadow-xs"
+              disabled={creatingFolder}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-orange hover:bg-orange-hover text-white transition shadow-xs flex items-center gap-1.5 disabled:opacity-50"
             >
-              Create Folder
+              {creatingFolder ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>Creating...</span>
+                </>
+              ) : (
+                <span>Create Folder</span>
+              )}
             </button>
           </div>
         </form>
@@ -826,7 +1061,7 @@ export function PrivateUploadsPage() {
       {/* MODAL 2: Delete File Confirmation */}
       <Modal
         open={Boolean(fileToDelete)}
-        onClose={() => setFileToDelete(null)}
+        onClose={() => !deletingFile && setFileToDelete(null)}
         title="Delete File from Private Locker"
       >
         <div className="space-y-4 text-xs sm:text-sm">
@@ -834,13 +1069,14 @@ export function PrivateUploadsPage() {
             <AlertTriangle size={18} className="text-error mt-0.5 shrink-0" />
             <div className="text-xs">
               <strong>Warning:</strong> You are about to permanently delete{" "}
-              <strong>&quot;{fileToDelete?.name}&quot;</strong> from your private locker. This action
+              <strong>&quot;{fileToDelete?.originalName}&quot;</strong> from your private locker. This action
               cannot be undone.
             </div>
           </div>
           <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-100">
             <button
               type="button"
+              disabled={deletingFile}
               onClick={() => setFileToDelete(null)}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-muted hover:bg-slate-100 transition"
             >
@@ -848,13 +1084,75 @@ export function PrivateUploadsPage() {
             </button>
             <button
               type="button"
+              disabled={deletingFile}
               onClick={confirmDeleteFile}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-error hover:bg-rose-700 text-white transition shadow-xs"
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-error hover:bg-rose-700 text-white transition shadow-xs flex items-center gap-1.5 disabled:opacity-50"
             >
-              Confirm Deletion
+              {deletingFile ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <span>Confirm Deletion</span>
+              )}
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* MODAL 3: Move File to Folder */}
+      <Modal
+        open={Boolean(fileToMove)}
+        onClose={() => !movingFile && setFileToMove(null)}
+        title="Move File"
+      >
+        <form onSubmit={handleConfirmMoveFile} className="space-y-4 text-xs sm:text-sm">
+          <p className="text-muted leading-relaxed">
+            Choose a destination directory for <strong>&quot;{fileToMove?.originalName}&quot;</strong>.
+          </p>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-ink">Destination Folder</label>
+            <select
+              value={targetFolderId}
+              onChange={(e) => setTargetFolderId(e.target.value)}
+              className="w-full h-10 px-3 rounded-xl border border-line bg-canvas text-xs sm:text-sm text-ink focus:outline-none focus:border-navy focus:bg-white transition cursor-pointer"
+            >
+              <option value="root">Root Directory (No folder)</option>
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name} ({f.fileCount ?? 0} files)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-100">
+            <button
+              type="button"
+              disabled={movingFile}
+              onClick={() => setFileToMove(null)}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-muted hover:bg-slate-100 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={movingFile}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-navy hover:bg-navy-hover text-white transition shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {movingFile ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>Moving...</span>
+                </>
+              ) : (
+                <span>Move File</span>
+              )}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

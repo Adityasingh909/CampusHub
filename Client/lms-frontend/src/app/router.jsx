@@ -6,12 +6,17 @@ import { OtpPage } from "../features/auth/OtpPage";
 import { SignupPage } from "../features/auth/SignupPage";
 import { AssignmentDetailPage } from "../features/assignments/AssignmentDetailPage";
 import { AssignmentsPage } from "../features/assignments/AssignmentsPage";
+import { TeacherAssignmentsPage } from "../features/assignments/TeacherAssignmentsPage";
 import { CourseDetailPage } from "../features/courses/CourseDetailPage";
 import { CoursesPage } from "../features/courses/CoursesPage";
+import { TeacherCoursesPage } from "../features/courses/TeacherCoursesPage";
 import { StudentDashboardPage } from "../features/dashboard/StudentDashboardPage";
+import { TeacherDashboardPage } from "../features/dashboard/TeacherDashboardPage";
+import { TeacherSubmissionsPage } from "../features/submissions/TeacherSubmissionsPage";
 import { QuizAttemptPage } from "../features/quizzes/QuizAttemptPage";
 import { QuizzesPage } from "../features/quizzes/QuizzesPage";
 import { StudentProfilePage } from "../features/profile/StudentProfilePage";
+import { TeacherProfilePage } from "../features/profile/TeacherProfilePage";
 import { PrivateUploadsPage } from "../features/uploads/PrivateUploadsPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
 import { ProtectedRoute } from "../components/ProtectedRoute";
@@ -53,53 +58,29 @@ export function AppRouter() {
         />
       </Route>
 
-      <Route element={ <ProtectedRoute role="student">
-      <DashboardLayout role="student" />
-    </ProtectedRoute>}>
+      <Route
+        element={
+          <ProtectedRoute role="teacher">
+            <DashboardLayout role="teacher" />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
+        <Route path="/teacher/courses" element={<TeacherCoursesPage />} />
+        <Route path="/teacher/courses/:courseId" element={<CourseDetailPage />} />
+        <Route path="/teacher/assignments" element={<TeacherAssignmentsPage />} />
         <Route
-          path="/teacher/dashboard"
-          element={
-            <PlaceholderPage
-              title="Teacher dashboard"
-              description="Faculty metrics and pending grading will be implemented in Phase 7."
-            />
-          }
+          path="/teacher/assignments/:assignmentId"
+          element={<TeacherSubmissionsPage />}
         />
         <Route
-          path="/teacher/courses"
-          element={
-            <PlaceholderPage
-              title="Manage courses"
-              description="Course create and edit flows will be implemented in Phase 7."
-            />
-          }
+          path="/teacher/assignments/:assignmentId/submissions"
+          element={<TeacherSubmissionsPage />}
         />
-        <Route
-          path="/teacher/assignments"
-          element={
-            <PlaceholderPage
-              title="Assignment management"
-              description="Create, edit, and publish assignments in Phase 7."
-            />
-          }
-        />
-        <Route
-          path="/teacher/submissions"
-          element={
-            <PlaceholderPage
-              title="Submissions & grading"
-              description="Review, grade, and feedback screens will be implemented in Phase 7."
-            />
-          }
-        />
+        <Route path="/teacher/submissions" element={<TeacherSubmissionsPage />} />
         <Route
           path="/teacher/submissions/:submissionId"
-          element={
-            <PlaceholderPage
-              title="Submission review"
-              description="File preview, marks, and comments will be implemented in Phase 7."
-            />
-          }
+          element={<TeacherSubmissionsPage />}
         />
         <Route
           path="/teacher/quizzes"
@@ -112,21 +93,11 @@ export function AppRouter() {
         />
         <Route
           path="/teacher/uploads"
-          element={
-            <PlaceholderPage
-              title="Private uploads"
-              description="Faculty file storage will share the uploads component from Phase 6."
-            />
-          }
+          element={<Navigate to="/teacher/dashboard" replace />}
         />
         <Route
           path="/teacher/profile"
-          element={
-            <PlaceholderPage
-              title="Profile"
-              description="Faculty account settings will reuse the profile layout."
-            />
-          }
+          element={<TeacherProfilePage />}
         />
       </Route>
 

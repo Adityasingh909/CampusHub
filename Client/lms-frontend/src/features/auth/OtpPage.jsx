@@ -1,6 +1,7 @@
 
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 // import { useAuth } from "../../hooks/useAuth";
 import { api } from "../../services/api";
@@ -12,7 +13,6 @@ export function OtpPage() {
   // const { signIn } = useAuth();
 
   const email = location.state?.email || "";
-  const name = location.state?.name || "Student";
 
   const [digits, setDigits] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
@@ -125,7 +125,14 @@ export function OtpPage() {
           className="w-full"
           disabled={loading}
         >
-          {loading ? "Verifying..." : "Verify and continue"}
+          {loading ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              <span>Verifying...</span>
+            </>
+          ) : (
+            "Verify and continue"
+          )}
         </Button>
       </form>
 

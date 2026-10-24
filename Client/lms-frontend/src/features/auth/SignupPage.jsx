@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { PasswordInput } from "../../components/ui/PasswordInput";
@@ -59,7 +59,7 @@ async function handleSubmit(event) {
   setError("");
 
   try {
-    const response = await api().post("/auth/register", {
+    await api().post("/auth/register", {
       name: form.name.trim(),
       email: form.email.trim().toLowerCase(),
       password: form.password,
@@ -149,8 +149,17 @@ async function handleSubmit(event) {
           className="w-full"
           disabled={loading}
         >
-          {loading ? "Sending OTP..." : "Continue to verification"}
-          {!loading && <ArrowRight size={16} />}
+          {loading ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              <span>Sending OTP...</span>
+            </>
+          ) : (
+            <>
+              <span>Continue to verification</span>
+              <ArrowRight size={16} />
+            </>
+          )}
         </Button>
       </form>
 

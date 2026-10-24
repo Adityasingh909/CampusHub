@@ -23,6 +23,11 @@ model User {
   coursesTaught         Course[]               @relation("TeacherCourses")
   enrollments           Enrollment[]
   assignmentSubmissions AssignmentSubmission[]
+  studentProfile        StudentProfile?
+  announcements         Announcement[]         @relation("AnnouncementAuthor")
+
+  privateFiles   PrivateFile[]
+  privateFolders PrivateFolder[]
 }
 
 model PendingRegistration {
@@ -57,12 +62,13 @@ model Course {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  teacher            User?        @relation("TeacherCourses", fields: [teacherId], references: [id], onDelete: SetNull)
+  teacher            User?          @relation("TeacherCourses", fields: [teacherId], references: [id], onDelete: SetNull)
   enrollments        Enrollment[]
   assignments        Assignment[]
-  officeHours        String       @default("")
-  syllabusUrl        String       @default("")
-  learningObjectives String[]     @default([])
+  announcements      Announcement[]
+  officeHours        String         @default("")
+  syllabusUrl        String         @default("")
+  learningObjectives String[]       @default([])
 
   @@index([teacherId])
 }
@@ -125,4 +131,75 @@ model AssignmentSubmission {
   @@unique([assignmentId, studentId])
   @@index([status])
   @@index([studentId])
+}
+
+model StudentProfile {
+  id                   Int       @id @default(autoincrement())
+  userId               Int       @unique
+  phone                String?
+  dob                  DateTime?
+  gender               String?
+  bloodGroup           String?
+  bio                  String?
+  avatar               String?
+  street               String?
+  city                 String?
+  state                String?
+  pincode              String?
+  emergencyContactName String?
+  emergencyPhone       String?
+  updatedAt            DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Announcement {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String   @db.Text
+  priority  String   @default("NORMAL")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  courseId Int
+  authorId Int
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  author User @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, createdAt])
+  @@index([authorId])
+}
+
+model PrivateFolder {
+  id        Int      @id @default(autoincrement())
+  name      String
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files PrivateFile[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model PrivateFile {
+  id           Int      @id @default(autoincrement())
+  originalName String
+  storageKey   String   @unique
+  mimeType     String
+  size         Int
+  userId       Int
+  folderId     Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder PrivateFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([folderId])
 }
