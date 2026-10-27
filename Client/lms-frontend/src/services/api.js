@@ -1,4 +1,5 @@
-const API_URL = "http://localhost:2000/api";
+// const API_URL = "http://localhost:2000/api";
+const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:2000"}/api`;
 
 // Active in-flight request tracking for global loading indicator
 let activeRequestCount = 0;
