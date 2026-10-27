@@ -6,6 +6,9 @@ dist/
 build/
 coverage/
 
+# Documentation
+docs/
+
 # Environment secrets
 .env
 .env.*
