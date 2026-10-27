@@ -51,9 +51,7 @@ exports.register = async (req, res) => {
       });
     }
 
-   const otp = require("crypto")
-  .randomBytes(4)
-  .readUInt32BE(0);
+   const otp = require("crypto").randomBytes(4).readUInt32BE(0);
 
 const otpString = (100000 + (otp % 900000)).toString();
     const passwordHash = await bcrypt.hash(password, 10);
