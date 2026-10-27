@@ -1,0 +1,1997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CampusHub LMS — Personal Engineering Handbook</title>
+  <style>
+    /* CSS Reset & Core Styling */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      background-color: #ffffff;
+      line-height: 1.6;
+      font-size: 13.5px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Print & Page Specifications */
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+      @bottom-right {
+        content: counter(page);
+        font-size: 9px;
+        color: #94a3b8;
+        font-family: monospace;
+      }
+      @bottom-left {
+        content: "CampusHub LMS • Personal Engineering Handbook";
+        font-size: 9px;
+        color: #94a3b8;
+      }
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        font-size: 11pt;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+      .no-break {
+        page-break-inside: avoid;
+      }
+      .card, .callout, .diagram-wrapper, .table-container, pre {
+        page-break-inside: avoid;
+      }
+      h2, h3 {
+        page-break-after: avoid;
+      }
+    }
+
+    /* Container */
+    .document-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* Cover Page */
+    .cover-page {
+      min-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 60px 40px;
+      background: linear-gradient(145deg, #0f172a 0%, #1e293b 60%, #090d16 100%);
+      color: #ffffff;
+      border-radius: 16px;
+      margin-bottom: 40px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+    }
+
+    .cover-badge-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .cover-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #93c5fd;
+    }
+
+    .cover-main {
+      margin: 60px 0;
+    }
+
+    .cover-title {
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      color: #ffffff;
+      margin-bottom: 16px;
+    }
+
+    .cover-title span {
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .cover-subtitle {
+      font-size: 18px;
+      color: #cbd5e1;
+      max-width: 680px;
+      line-height: 1.5;
+      font-weight: 400;
+    }
+
+    .cover-footer {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 24px;
+    }
+
+    .cover-meta-item h4 {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+
+    .cover-meta-item p {
+      font-size: 13px;
+      color: #f1f5f9;
+      font-weight: 600;
+    }
+
+    /* Table of Contents */
+    .toc-container {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 48px;
+    }
+
+    .toc-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #cbd5e1;
+      padding-bottom: 8px;
+    }
+
+    .toc-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 32px;
+    }
+
+    .toc-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 12.5px;
+      color: #334155;
+      text-decoration: none;
+      padding: 4px 0;
+      border-bottom: 1px dotted #cbd5e1;
+    }
+
+    .toc-item:hover {
+      color: #2563eb;
+    }
+
+    .toc-part-num {
+      font-weight: 700;
+      color: #4f46e5;
+      margin-right: 6px;
+    }
+
+    /* Chapter Header */
+    .chapter {
+      margin-bottom: 56px;
+    }
+
+    .chapter-header {
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 14px;
+      margin-bottom: 24px;
+      margin-top: 24px;
+    }
+
+    .chapter-tag {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #4f46e5;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 28px 0 12px 0;
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #334155;
+      margin: 20px 0 8px 0;
+    }
+
+    p {
+      margin-bottom: 12px;
+      color: #334155;
+    }
+
+    .lead {
+      font-size: 14.5px;
+      color: #475569;
+      margin-bottom: 16px;
+    }
+
+    /* Cards & Grids */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px 18px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    .card-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+
+    .text-sm {
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.5;
+    }
+
+    .text-red { color: #dc2626; }
+    .text-emerald { color: #059669; }
+
+    /* Tables */
+    .table-container {
+      margin: 18px 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    table.spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    table.spec-table th {
+      background: #f1f5f9;
+      color: #1e293b;
+      font-weight: 700;
+      padding: 10px 12px;
+      border-bottom: 1px solid #cbd5e1;
+    }
+
+    table.spec-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+      vertical-align: top;
+    }
+
+    table.spec-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    table.spec-table tr:nth-child(even) td {
+      background-color: #fafbfc;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-blue { background: #e0f2fe; color: #0369a1; }
+    .badge-emerald { background: #d1fae5; color: #065f46; }
+    .badge-purple { background: #ede9fe; color: #5b21b6; }
+    .badge-orange { background: #ffedd5; color: #9a3412; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+
+    /* Callouts */
+    .callout {
+      border-left: 4px solid;
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin: 18px 0;
+      font-size: 12.5px;
+    }
+
+    .callout-info {
+      background: #f0f9ff;
+      border-color: #0284c7;
+      color: #0c4a6e;
+    }
+
+    .callout-warning {
+      background: #fffbeb;
+      border-color: #d97706;
+      color: #78350f;
+    }
+
+    .callout-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    /* Code & Pre */
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11.5px;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 2px 5px;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      margin: 16px 0;
+      border: 1px solid #1e293b;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border: none;
+      font-size: inherit;
+    }
+
+    /* Diagram SVG */
+    .diagram-wrapper {
+      margin: 20px 0;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .diagram-svg {
+      width: 100%;
+      max-width: 860px;
+      height: auto;
+    }
+
+    /* Lists */
+    ul, ol {
+      margin: 8px 0 16px 20px;
+      color: #334155;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="document-container">
+    
+    <!-- COVER PAGE -->
+    <div class="cover-page">
+      <div class="cover-badge-row">
+        <span class="cover-badge">Full-Stack Architecture</span>
+        <span class="cover-badge">Personal Revision Handbook</span>
+        <span class="cover-badge">Production v2.0</span>
+      </div>
+
+      <div class="cover-main">
+        <h1 class="cover-title">CampusHub <span>LMS</span></h1>
+        <p class="cover-subtitle">
+          Comprehensive Technical Documentation, Systems Architecture Blueprints, End-to-End Request Lifecycles, and Senior Interview Revision Handbook.
+        </p>
+      </div>
+
+      <div class="cover-footer">
+        <div class="cover-meta-item">
+          <h4>Author &amp; Architect</h4>
+          <p>Aditya Singh</p>
+        </div>
+        <div class="cover-meta-item">
+          <h4>Core Stack</h4>
+          <p>React 19 • Express 5 • PostgreSQL • Prisma 6</p>
+        </div>
+        <div class="cover-meta-item">
+          <h4>Deployments</h4>
+          <p>Vercel Edge • Render • Neon Serverless • Cloudflare R2</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- TABLE OF CONTENTS -->
+    <div class="toc-container">
+      <div class="toc-title">Handbook Table of Contents</div>
+      <div class="toc-grid">
+        <a class="toc-item" href="#part-1"><span class="toc-part-num">Part 1</span> Executive Overview &amp; Architecture</a>
+        <a class="toc-item" href="#part-2"><span class="toc-part-num">Part 2</span> Codebase Directory &amp; Component Map</a>
+        <a class="toc-item" href="#part-3"><span class="toc-part-num">Part 3</span> Technology Stack Deep Dive</a>
+        <a class="toc-item" href="#part-4"><span class="toc-part-num">Part 4</span> End-to-End Request Lifecycles</a>
+        <a class="toc-item" href="#part-5"><span class="toc-part-num">Part 5</span> Database Architecture &amp; Prisma ORM</a>
+        <a class="toc-item" href="#part-6"><span class="toc-part-num">Part 6</span> Identity &amp; OTP Removal Post-Mortem</a>
+        <a class="toc-item" href="#part-7"><span class="toc-part-num">Part 7</span> 6 Real-World Debugging Case Studies</a>
+        <a class="toc-item" href="#part-8"><span class="toc-part-num">Part 8</span> Learning Progression &amp; Skills Audit</a>
+        <a class="toc-item" href="#part-9"><span class="toc-part-num">Part 9</span> Complete Interview Preparation Kit</a>
+        <a class="toc-item" href="#part-10"><span class="toc-part-num">Part 10</span> 4-Week Full-Stack Mastery Roadmap</a>
+        <a class="toc-item" href="#part-11"><span class="toc-part-num">Part 11</span> Engineering Backlog &amp; Next Features</a>
+        <a class="toc-item" href="#part-12"><span class="toc-part-num">Part 12</span> 1-Page Revision Cheat Sheet</a>
+        <a class="toc-item" href="#part-13"><span class="toc-part-num">Part 13</span> Technical Glossary &amp; Project Index</a>
+      </div>
+    </div>
+
+    <!-- CHAPTER CONTENTS -->
+    
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part1">
+      <div class="chapter-header">
+        <span class="chapter-tag">SYSTEM BLUEPRINT</span>
+        <h1>Part 1 — Executive Overview & System Architecture</h1>
+      </div>
+
+      <h2>1.1 Project Mission & Problem Statement</h2>
+      <p>
+        <strong>CampusHub LMS</strong> is a custom, full-stack Learning Management System engineered from the ground up to streamline modern academic workflows for both students and faculty instructors. Traditional educational portals often suffer from fragmented user interfaces, cumbersome grading mechanics, clunky file storage, and unreliable submission lifecycles. CampusHub solves these problems through:
+      </p>
+      <ul>
+        <li><strong>Unified Academic Workspaces:</strong> Distinct, role-based dashboards tailored specifically for students and teachers with zero cross-role leakage.</li>
+        <li><strong>Course Administration &amp; Enrollment:</strong> Direct student course catalogs, enrollment state tracking, syllabus inspection, and real-time course announcements.</li>
+        <li><strong>Assessment Engine:</strong> Timed multiple-choice quizzes with server-side duration enforcement, automated instant scoring, anti-concurrency guards, and transparent student performance rubrics.</li>
+        <li><strong>Assignment Lifecycles:</strong> Deadline-aware student assignment submissions and a dedicated teacher evaluation portal with scoring and customized feedback.</li>
+        <li><strong>Secure Cloud Object Storage:</strong> A private personal file and folder repository integrated directly with Cloudflare R2, using time-limited presigned URLs (60-second TTL) for authenticated, zero-leak downloads.</li>
+      </ul>
+
+      <h2>1.2 Core Architectural Principles</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title">1. Decoupled Client-Server Boundary</h3>
+          <p class="text-sm">A Single Page Application (SPA) frontend communicating strictly over HTTPS with an asynchronous RESTful JSON API backend. Neither layer makes assumptions about the host environment of the other.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">2. Stateless JWT Authentication</h3>
+          <p class="text-sm">No server-side session memory or sticky sessions. All authentication state is carried in cryptographic JSON Web Tokens signed with HMAC-SHA256, enabling effortless horizontal scaling on serverless and containerized cloud platforms.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">3. Type-Safe ORM Data Access</h3>
+          <p class="text-sm">Complete elimination of raw, error-prone SQL string concatenation through Prisma ORM 6, enforcing compile-time model consistency, explicit foreign key relationships, and deterministic schema migrations.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">4. Resilient Blob Storage Offloading</h3>
+          <p class="text-sm">Large binary files (PDFs, ZIPs, images) are never stored in the database or server filesystem; they are streamed directly to Cloudflare R2 (S3-compatible) with metadata tracking in PostgreSQL and compensation rollbacks on failure.</p>
+        </div>
+      </div>
+
+      <h2>1.3 Verified System Architecture &amp; Data Pipeline</h2>
+      <p>The application runs across four managed cloud services, completely separating concerns:</p>
+      <ul>
+        <li><strong>Client (Frontend):</strong> React 19 SPA bundled by Vite 8 and styled with Tailwind CSS v4, deployed globally across Vercel's Edge CDN (<code>campus-hub-delta-sooty.vercel.app</code>).</li>
+        <li><strong>Server (Backend API):</strong> Node.js 26 and Express 5 web service hosted on Render, handling routing, middleware authentication, business validation, and database operations.</li>
+        <li><strong>Relational Database:</strong> PostgreSQL managed by Neon Serverless Cloud (AWS us-east-2 region), connected via Prisma ORM 6.19.3.</li>
+        <li><strong>Object Storage:</strong> Cloudflare R2 private storage bucket, accessed via <code>@aws-sdk/client-s3</code> and <code>@aws-sdk/s3-request-presigner</code> using S3-compatible endpoints.</li>
+      </ul>
+
+      <div class="diagram-wrapper">
+        <svg viewBox="0 0 880 340" class="diagram-svg" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#0f172a" />
+              <stop offset="100%" stop-color="#1e293b" />
+            </linearGradient>
+            <linearGradient id="grad-orange" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#f97316" />
+              <stop offset="100%" stop-color="#ea580c" />
+            </linearGradient>
+            <linearGradient id="grad-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#059669" />
+              <stop offset="100%" stop-color="#047857" />
+            </linearGradient>
+            <linearGradient id="grad-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#7c3aed" />
+              <stop offset="100%" stop-color="#6d28d9" />
+            </linearGradient>
+            <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+              <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.08" />
+            </filter>
+          </defs>
+
+          <!-- Outer boundary -->
+          <rect x="10" y="10" width="860" height="320" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" />
+
+          <!-- Client Box -->
+          <g filter="url(#shadow)">
+            <rect x="35" y="40" width="220" height="260" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+            <rect x="35" y="40" width="220" height="42" rx="12" fill="url(#grad-blue)" />
+            <text x="145" y="66" fill="#ffffff" font-size="13" font-weight="700" text-anchor="middle">CLIENT LAYER (Vercel)</text>
+            <text x="50" y="105" fill="#0f172a" font-size="11" font-weight="700">React 19.2.8 + Vite 8.3</text>
+            <text x="50" y="125" fill="#64748b" font-size="10">Tailwind CSS v4 (Engine)</text>
+            <text x="50" y="145" fill="#64748b" font-size="10">React Router v7.18</text>
+            <text x="50" y="165" fill="#64748b" font-size="10">Lucide React Icons</text>
+            <line x1="50" y1="180" x2="235" y2="180" stroke="#f1f5f9" stroke-width="1" />
+            <text x="50" y="200" fill="#0f172a" font-size="11" font-weight="700">Security &amp; State</text>
+            <text x="50" y="220" fill="#64748b" font-size="10">JWT in LocalStorage</text>
+            <text x="50" y="240" fill="#64748b" font-size="10">AuthContext &amp; LoadingContext</text>
+            <text x="50" y="260" fill="#64748b" font-size="10">Axios-Style api.js Helper</text>
+          </g>
+
+          <!-- Arrow Client -> Server -->
+          <g>
+            <line x1="255" y1="170" x2="325" y2="170" stroke="#f97316" stroke-width="2.5" stroke-dasharray="4" />
+            <polygon points="325,166 333,170 325,174" fill="#f97316" />
+            <text x="290" y="158" fill="#ea580c" font-size="9" font-weight="700" text-anchor="middle">HTTPS / REST</text>
+            <text x="290" y="188" fill="#64748b" font-size="8" text-anchor="middle">Bearer &lt;JWT&gt;</text>
+          </g>
+
+          <!-- Server Box -->
+          <g filter="url(#shadow)">
+            <rect x="335" y="40" width="220" height="260" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+            <rect x="335" y="40" width="220" height="42" rx="12" fill="url(#grad-orange)" />
+            <text x="445" y="66" fill="#ffffff" font-size="13" font-weight="700" text-anchor="middle">BACKEND API (Render)</text>
+            <text x="350" y="105" fill="#0f172a" font-size="11" font-weight="700">Node.js 26 + Express 5</text>
+            <text x="350" y="125" fill="#64748b" font-size="10">CORS &amp; JSON (5MB Limit)</text>
+            <text x="350" y="145" fill="#64748b" font-size="10">Auth &amp; Role Middleware</text>
+            <text x="350" y="165" fill="#64748b" font-size="10">Multer (25MB Memory Storage)</text>
+            <line x1="350" y1="180" x2="535" y2="180" stroke="#f1f5f9" stroke-width="1" />
+            <text x="350" y="200" fill="#0f172a" font-size="11" font-weight="700">Service Modules</text>
+            <text x="350" y="220" fill="#64748b" font-size="10">bcryptjs (Password Hash)</text>
+            <text x="350" y="240" fill="#64748b" font-size="10">Prisma Client 6.19.3</text>
+            <text x="350" y="260" fill="#64748b" font-size="10">AWS SDK v3 S3 Client</text>
+          </g>
+
+          <!-- Arrow Server -> Database -->
+          <g>
+            <line x1="555" y1="110" x2="625" y2="110" stroke="#059669" stroke-width="2" />
+            <polygon points="625,106 633,110 625,114" fill="#059669" />
+            <text x="590" y="100" fill="#047857" font-size="8.5" font-weight="700" text-anchor="middle">SQL / TCP</text>
+          </g>
+
+          <!-- Arrow Server -> Cloudflare R2 -->
+          <g>
+            <line x1="555" y1="230" x2="625" y2="230" stroke="#7c3aed" stroke-width="2" />
+            <polygon points="625,226 633,230 625,234" fill="#7c3aed" />
+            <text x="590" y="220" fill="#6d28d9" font-size="8.5" font-weight="700" text-anchor="middle">S3 API</text>
+          </g>
+
+          <!-- Neon Database Box -->
+          <g filter="url(#shadow)">
+            <rect x="635" y="40" width="205" height="120" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+            <rect x="635" y="40" width="205" height="34" rx="12" fill="url(#grad-emerald)" />
+            <text x="737" y="62" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">DATABASE (Neon Cloud)</text>
+            <text x="650" y="94" fill="#0f172a" font-size="10.5" font-weight="700">PostgreSQL 16/17 Serverless</text>
+            <text x="650" y="112" fill="#64748b" font-size="9.5">AWS us-east-2 / Connection Pooler</text>
+            <text x="650" y="130" fill="#64748b" font-size="9.5">12 Schema Migrations Applied</text>
+          </g>
+
+          <!-- Cloudflare R2 Box -->
+          <g filter="url(#shadow)">
+            <rect x="635" y="180" width="205" height="120" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+            <rect x="635" y="180" width="205" height="34" rx="12" fill="url(#grad-purple)" />
+            <text x="737" y="202" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">BLOB STORE (Cloudflare R2)</text>
+            <text x="650" y="234" fill="#0f172a" font-size="10.5" font-weight="700">S3-Compatible Object Store</text>
+            <text x="650" y="252" fill="#64748b" font-size="9.5">Presigned URLs (60s Expiry)</text>
+            <text x="650" y="270" fill="#64748b" font-size="9.5">Zero Egress Bandwidth Cost</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-title">Architectural Note on Mongoose in package.json</div>
+        <p class="text-sm">
+          Inspection of <code>Server/package.json</code> reveals <code>"mongoose": "^9.11.2"</code> listed as a dependency. However, a full codebase static analysis confirms that Mongoose is <em>neither imported nor used anywhere</em> in <code>Server/src</code>. PostgreSQL via Prisma ORM is the sole and authoritative database. The Mongoose dependency is legacy baggage from early prototype scaffolding and can be safely uninstalled.
+        </p>
+      </div>
+    </section>
+
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part2">
+      <div class="chapter-header">
+        <span class="chapter-tag">CODEBASE ATLAS</span>
+        <h1>Part 2 — Project Structure &amp; File Responsibilities</h1>
+      </div>
+
+      <h2>2.1 Verified Project Directory Tree</h2>
+      <p>The repository is split into two cleanly separated root directories: <code>Client/lms-frontend</code> and <code>Server</code>.</p>
+
+      <div class="tree-box">
+<pre>CampusHub/
+├── <strong>Client/lms-frontend/</strong>                 <span class="tree-comment"># React 19 Frontend SPA (Vite + Tailwind v4)</span>
+│   ├── src/
+│   │   ├── app/router.jsx               <span class="tree-comment"># Central routing configuration, protected guards, layouts</span>
+│   │   ├── components/
+│   │   │   ├── layout/                  <span class="tree-comment"># Header, Sidebar, DashboardLayout</span>
+│   │   │   ├── ui/                      <span class="tree-comment"># Button, Input, Modal, ProgressBar, Tabs</span>
+│   │   │   └── ProtectedRoute.jsx       <span class="tree-comment"># Auth and Role verification route guard</span>
+│   │   ├── context/
+│   │   │   ├── AuthContext.jsx          <span class="tree-comment"># Global session state, localStorage sync, profile hydrator</span>
+│   │   │   └── LoadingContext.jsx       <span class="tree-comment"># Active request counter for global top loader</span>
+│   │   ├── features/                    <span class="tree-comment"># Domain-driven feature modules</span>
+│   │   │   ├── assignments/             <span class="tree-comment"># Student submissions &amp; Teacher assignment grading</span>
+│   │   │   ├── auth/                    <span class="tree-comment"># Login, Signup, ForgotPassword, Brand banners</span>
+│   │   │   ├── courses/                 <span class="tree-comment"># Course listing, Course details, Teacher course editor</span>
+│   │   │   ├── dashboard/               <span class="tree-comment"># Student &amp; Teacher personalized metrics dashboards</span>
+│   │   │   ├── profile/                 <span class="tree-comment"># Student profile view and personal details editor</span>
+│   │   │   ├── quizzes/                 <span class="tree-comment"># Quizzes catalog, Attempt runner, Results, Teacher Quiz Manager</span>
+│   │   │   ├── submissions/             <span class="tree-comment"># Dedicated Teacher student submissions overview</span>
+│   │   │   └── uploads/                 <span class="tree-comment"># Cloudflare R2 Private file and folder storage manager</span>
+│   │   ├── hooks/                       <span class="tree-comment"># useAuth, useLoading, useToast</span>
+│   │   ├── services/api.js              <span class="tree-comment"># Central Axios-style fetch wrapper with auth injection</span>
+│   │   ├── App.jsx                      <span class="tree-comment"># Root component mounting AuthProvider and Global Loading Bar</span>
+│   │   └── main.jsx                     <span class="tree-comment"># DOM entry point mounting React root with BrowserRouter</span>
+│   ├── vercel.json                      <span class="tree-comment"># SPA client-side rewrite rules for Vercel deployment</span>
+│   └── vite.config.js                   <span class="tree-comment"># Vite configuration with React and Tailwind plugins</span>
+│
+└── <strong>Server/</strong>                              <span class="tree-comment"># Node.js + Express 5 REST API Backend</span>
+    ├── prisma/
+    │   ├── migrations/                  <span class="tree-comment"># 12 applied SQL migrations documenting database history</span>
+    │   └── schema.prisma                <span class="tree-comment"># Authoritative Prisma data models, constraints, and datasource</span>
+    ├── src/
+    │   ├── config/
+    │   │   ├── prisma.js                <span class="tree-comment"># Singleton PrismaClient instance exported for controllers</span>
+    │   │   └── r2.js                    <span class="tree-comment"># Cloudflare R2 S3Client instance initialization</span>
+    │   ├── controllers/                 <span class="tree-comment"># Business logic, data validation, database orchestration</span>
+    │   │   ├── auth.controller.js       <span class="tree-comment"># Direct registration, bcrypt hashing, JWT login</span>
+    │   │   ├── assignment.controller.js <span class="tree-comment"># Assignment creation, student submission, grading</span>
+    │   │   ├── course.controller.js     <span class="tree-comment"># Course catalog, teacher course management</span>
+    │   │   ├── privateFile.controller.js<span class="tree-comment"># R2 PutObject, Presigned GetObject, DB records</span>
+    │   │   └── quiz.controller.js       <span class="tree-comment"># Quiz CRUD, Question authoring, Attempts, Auto-grading</span>
+    │   ├── middleware/
+    │   │   ├── auth.middleware.js       <span class="tree-comment"># JWT verification &amp; role authorization (Student/Teacher)</span>
+    │   │   └── upload.middleware.js     <span class="tree-comment"># Multer memory storage &amp; 25MB MIME whitelist validator</span>
+    │   ├── routes/                      <span class="tree-comment"># Express router definitions mapping HTTP methods to controllers</span>
+    │   └── index.js                     <span class="tree-comment"># Main Express entry point, CORS, JSON parsing, port listener</span>
+    └── .env                             <span class="tree-comment"># Local secrets: DATABASE_URL, JWT_SECRET, R2 credentials</span>
+</pre>
+      </div>
+
+      <h2>2.2 Deep Dive: Why Architectural Layers are Separated</h2>
+
+      <div class="card">
+        <h3>1. Why Routes and Controllers are Separated</h3>
+        <p class="text-sm">
+          In Express, a <strong>Route</strong> is strictly a traffic dispatcher. It defines the HTTP verb, the path pattern, the middleware stack, and points to a controller function. A <strong>Controller</strong> contains the actual business execution logic.
+        </p>
+        <p class="text-sm">
+          <em>Why this matters:</em> If an endpoint path changes from <code>/api/course</code> to <code>/api/courses</code>, only the route definition is touched. The complex business logic, validation algorithms, and database transactions in the controller remain completely unaffected and isolated.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>2. Why Middleware Exists</h3>
+        <p class="text-sm">
+          Middleware functions act as security guards and pre-processors. Instead of duplicating JWT verification or file-size checks inside every single controller, middleware executes first. If the incoming token is expired or the file is not an allowed PDF/ZIP, the middleware halts the request immediately with an HTTP 401 or 400 before heavy database queries run.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>3. Why the Prisma Schema is Separate from Code</h3>
+        <p class="text-sm">
+          Prisma uses a declarative modeling syntax in <code>schema.prisma</code> instead of inline JavaScript models. This acts as the single source of truth for the entire database. Running <code>prisma migrate</code> translates this schema into immutable SQL migration files, while <code>prisma generate</code> builds the strongly-typed JavaScript query builder used by controllers.
+        </p>
+      </div>
+    </section>
+
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part3">
+      <div class="chapter-header">
+        <span class="chapter-tag">DEPENDENCY ARCHITECTURE</span>
+        <h1>Part 3 — Technology Stack Matrix &amp; Ecosystem Relationships</h1>
+      </div>
+
+      <h2>3.1 Verified Technology Stack Matrix</h2>
+      <p>Every technology in this matrix was directly verified against <code>Server/package.json</code>, <code>Client/lms-frontend/package.json</code>, and the live application runtime.</p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 14%;">Technology</th>
+              <th style="width: 10%;">Version</th>
+              <th style="width: 26%;">CampusHub Responsibility</th>
+              <th style="width: 25%;">Core Concept to Master</th>
+              <th style="width: 25%;">Next Learning Target</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>React</strong></td>
+              <td><code>19.2.8</code></td>
+              <td>Declarative component UI, reactive state, and virtual DOM diffing</td>
+              <td>Unidirectional data flow, effect dependencies, StrictMode double-mounting</td>
+              <td>React 19 Actions, <code>useTransition</code>, Server Components</td>
+            </tr>
+            <tr>
+              <td><strong>Vite</strong></td>
+              <td><code>8.3.0</code></td>
+              <td>Development server with instant HMR and production bundle optimizer</td>
+              <td>ESM bundling vs production chunks; <code>import.meta.env</code> exposure</td>
+              <td>Route-level code splitting via dynamic <code>import()</code></td>
+            </tr>
+            <tr>
+              <td><strong>Tailwind CSS</strong></td>
+              <td><code>4.3.3</code></td>
+              <td>Utility-first CSS styling engine with responsive breakpoints</td>
+              <td>CSS-first theme configuration, flexbox, CSS grid, pseudo-classes</td>
+              <td>Custom CSS design tokens, container queries, dark mode</td>
+            </tr>
+            <tr>
+              <td><strong>React Router</strong></td>
+              <td><code>7.18.4</code></td>
+              <td>Client-side routing, URL state management, and protected route guards</td>
+              <td>Client-side navigation without page reload; params &amp; location state</td>
+              <td>Route data loaders, action handlers, pending states</td>
+            </tr>
+            <tr>
+              <td><strong>Node.js</strong></td>
+              <td><code>v26.12.0</code></td>
+              <td>Asynchronous, non-blocking JavaScript server runtime environment</td>
+              <td>Event loop, asynchronous I/O, CommonJS vs ESM module systems</td>
+              <td>Node.js stream processing, memory profiling, worker threads</td>
+            </tr>
+            <tr>
+              <td><strong>Express</strong></td>
+              <td><code>5.3.0</code></td>
+              <td>HTTP REST API server framework and request routing engine</td>
+              <td>Middleware chaining, route dispatching, HTTP status semantics</td>
+              <td>Express 5 native promise rejection handling, custom rate limiters</td>
+            </tr>
+            <tr>
+              <td><strong>Prisma ORM</strong></td>
+              <td><code>6.19.3</code></td>
+              <td>Type-safe database abstraction, query builder, and migration engine</td>
+              <td>Declarative schemas, migration generation, relation queries (<code>include</code>)</td>
+              <td>Raw SQL with <code>$queryRaw</code>, database transaction isolation</td>
+            </tr>
+            <tr>
+              <td><strong>PostgreSQL</strong></td>
+              <td><code>16/17 (Neon)</code></td>
+              <td>ACID-compliant relational database management system</td>
+              <td>Relational constraints, foreign keys, unique indexes, cascade deletions</td>
+              <td>Query execution planning with <code>EXPLAIN ANALYZE</code></td>
+            </tr>
+            <tr>
+              <td><strong>Cloudflare R2</strong></td>
+              <td>Managed S3</td>
+              <td>High-durability object storage for student files and folders</td>
+              <td>Zero-egress bandwidth pricing, S3 API compatibility, private bucket security</td>
+              <td>Direct browser-to-bucket uploads via presigned PUT URLs</td>
+            </tr>
+            <tr>
+              <td><strong>bcryptjs</strong></td>
+              <td><code>3.0.3</code></td>
+              <td>Cryptographic password hashing using salt and Blowfish cipher</td>
+              <td>One-way hashing, salt rounds (cost factor 10), timing attacks</td>
+              <td>Argon2id hashing algorithm comparison and benchmark</td>
+            </tr>
+            <tr>
+              <td><strong>jsonwebtoken</strong></td>
+              <td><code>9.0.3</code></td>
+              <td>Cryptographic token generation and stateless signature verification</td>
+              <td>Header.Payload.Signature anatomy; stateless verification via secret</td>
+              <td>Refresh token rotation, RS256 asymmetric public/private keys</td>
+            </tr>
+            <tr>
+              <td><strong>Multer</strong></td>
+              <td><code>2.5.0</code></td>
+              <td>Multipart/form-data middleware for processing file uploads</td>
+              <td>Memory buffering, MIME-type validation, 25MB file size enforcement</td>
+              <td>Direct stream piping to cloud storage without holding RAM</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>3.2 Key Technology Relationships Explained</h2>
+
+      <div class="card">
+        <h3>1. Prisma ORM vs PostgreSQL: Who Does What?</h3>
+        <p class="text-sm">
+          A common beginner confusion is thinking Prisma <em>is</em> the database. It is not. <strong>PostgreSQL</strong> is the database server hosted on Neon that physically stores your tables, records, and indexes on disk. <strong>Prisma</strong> is an Object-Relational Mapper (ORM) that lives inside your Express server code.
+        </p>
+        <p class="text-sm">
+          When your controller executes <code>prisma.user.findUnique({ where: { email } })</code>, Prisma's Rust query engine constructs a parameterized SQL query: <code>SELECT id, name, email, password, role FROM "User" WHERE email = $1 LIMIT 1</code>. It sends this query over TCP to PostgreSQL, parses the database response rows, and returns a clean JavaScript object.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>2. Vercel vs Render vs Neon: Why Three Different Clouds?</h3>
+        <p class="text-sm">
+          CampusHub uses modern specialized cloud hosting rather than a monolithic virtual private server:
+        </p>
+        <ul>
+          <li><strong>Vercel (Frontend):</strong> Serves static assets across global edge locations. When a user in Delhi or New York visits the site, the HTML, JS, and CSS load from the nearest edge server in milliseconds.</li>
+          <li><strong>Render (Backend):</strong> Runs a continuous Node.js server that listens for incoming API traffic, verifies authentication, and computes business logic.</li>
+          <li><strong>Neon (Database):</strong> Runs serverless PostgreSQL in AWS us-east-2. Neon automatically scales compute, handles automated backups, and provides connection pooling for high-concurrency queries.</li>
+        </ul>
+      </div>
+    </section>
+
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part4">
+      <div class="chapter-header">
+        <span class="chapter-tag">EXECUTION PIPELINES</span>
+        <h1>Part 4 — Request Lifecycle &amp; Core Application Workflows</h1>
+      </div>
+
+      <h2>4.1 The Standard 10-Step HTTP Request Lifecycle</h2>
+      <p>Every dynamic interaction in CampusHub follows an orchestrated ten-step pipeline between browser, network, middleware, business controllers, and PostgreSQL:</p>
+
+      <div class="card">
+        <ol style="margin-left: 18px; padding-left: 0;">
+          <li><strong>User Action:</strong> User interacts with a React UI component (e.g., submitting registration or a quiz answer).</li>
+          <li><strong>Client-Side Validation:</strong> Component performs instant checks (email format, password length, required fields) to eliminate invalid network calls.</li>
+          <li><strong>HTTP Client Dispatch:</strong> Centralized <code>api()</code> helper increments the active request counter (triggering the top loading bar), retrieves JWT from <code>localStorage</code>, injects <code>Authorization: Bearer &lt;token&gt;</code>, and dispatches the fetch call.</li>
+          <li><strong>Network Ingress:</strong> Request traverses TLS 1.3 across the internet to the Express 5 server hosted on Render.</li>
+          <li><strong>Global Middleware:</strong> Express invokes <code>cors()</code> and <code>express.json({ limit: "5mb" })</code> to parse incoming payload buffers into <code>req.body</code>.</li>
+          <li><strong>Route &amp; Security Guards:</strong> Route-specific middleware executes: <code>authenticate</code> verifies the JWT signature; <code>authorizeStudent</code> or <code>authorizeTeacher</code> verifies role permissions.</li>
+          <li><strong>Controller Business Validation:</strong> Controller evaluates domain rules (deadline expirations, course enrollments, duplicate checks).</li>
+          <li><strong>Prisma ORM &amp; PostgreSQL:</strong> Controller executes type-safe queries or atomic <code>prisma.$transaction</code> blocks.</li>
+          <li><strong>Structured HTTP Response:</strong> Controller returns an explicit HTTP status (<code>200</code>, <code>201</code>, <code>400</code>, <code>403</code>, <code>409</code>) with JSON payload: <code>{ success, message, data }</code>.</li>
+          <li><strong>State Reconciliation:</strong> <code>api()</code> decrements the loading counter; React updates state, re-renders the DOM, or triggers navigation.</li>
+        </ol>
+      </div>
+
+      <h2>4.2 Individual Workflow Traces</h2>
+
+      <div class="card">
+        <h3>Flow A: Direct Registration Lifecycle</h3>
+        <p class="text-sm"><strong>Frontend:</strong> <code>SignupPage.jsx</code> | <strong>Backend Route:</strong> <code>POST /api/auth/register</code> | <strong>Controller:</strong> <code>auth.controller.js</code></p>
+        <p class="text-sm">
+          Registration is completely streamlined: User submits name, email, and password. The controller normalizes email to lowercase, checks for duplicates via <code>prisma.user.findUnique</code> (returning HTTP 409 if taken), hashes the password with <code>bcrypt.hash(password, 10)</code>, and inserts the user directly into PostgreSQL with role <code>STUDENT</code>. Upon receiving HTTP 201, the frontend redirects directly to <code>/login</code>, pre-populating the email field with a green success notification.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Flow B: Quiz Attempt &amp; Automated Grading Pipeline</h3>
+        <p class="text-sm"><strong>Frontend:</strong> <code>QuizzesPage.jsx</code>, <code>QuizAttemptPage.jsx</code>, <code>QuizResultPage.jsx</code> | <strong>Controller:</strong> <code>quiz.controller.js</code></p>
+        <p class="text-sm">
+          <strong>1. Attempt Initialization:</strong> When a student starts a quiz, the server verifies enrollment and availability windows. Crucially, the server strips <code>correctAnswer</code> and <code>explanation</code> from the question JSON returned to the client, preventing any client-side inspection cheats.
+        </p>
+        <p class="text-sm">
+          <strong>2. Atomic Submission &amp; Grading:</strong> When submitted, the controller fetches the master questions, compares the student's selections, calculates the final score and percentage, and executes an atomic <code>prisma.$transaction</code>: marks the attempt <code>SUBMITTED</code>, deletes any orphan in-progress attempts, and persists all answers. The student is then redirected to the comprehensive Rubric Result page.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Flow C: Cloudflare R2 Secure Object Storage</h3>
+        <p class="text-sm"><strong>Frontend:</strong> <code>PrivateUploadsPage.jsx</code> | <strong>Controller:</strong> <code>privateFile.controller.js</code> | <strong>Config:</strong> <code>r2.js</code></p>
+        <p class="text-sm">
+          <strong>1. Ingestion:</strong> Multer buffers incoming files in memory with a 25MB limit and strict MIME whitelist. The controller generates a collision-free UUID storage key: <code>private/&lt;userId&gt;/&lt;UUID&gt;.&lt;ext&gt;</code>, streams it to Cloudflare R2 via <code>PutObjectCommand</code>, and records file metadata in PostgreSQL.
+        </p>
+        <p class="text-sm">
+          <strong>2. Compensation Rollback:</strong> If the database write fails after the file reaches R2, a catch block automatically executes <code>DeleteObjectCommand</code> on R2 to prevent orphaned storage leaks.
+        </p>
+        <p class="text-sm">
+          <strong>3. Presigned Downloads:</strong> Downloads request a temporary signed URL via <code>getSignedUrl(r2, command, { expiresIn: 60 })</code>. The link is valid for exactly 60 seconds, ensuring files remain completely private and inaccessible without authentication.
+        </p>
+      </div>
+    </section>
+
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part-5">
+      <div class="chapter-header">
+        <span class="chapter-tag">DATA ARCHITECTURE</span>
+        <h1>Part 5 — Database Architecture &amp; Prisma ORM</h1>
+      </div>
+
+      <h2>5.1 Complete Relational Schema &amp; Entity Models</h2>
+      <p>
+        CampusHub LMS relies on <strong>PostgreSQL</strong> hosted on Neon Serverless Cloud, managed strictly through <strong>Prisma ORM v6.19.3</strong>. The database contains <strong>13 verified models</strong> designed for academic integrity, transactional reliability, and high relational efficiency.
+      </p>
+
+      <div class="table-container">
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Primary Key</th>
+              <th>Foreign Keys &amp; Relations</th>
+              <th>Unique Constraints &amp; Indexes</th>
+              <th>Primary Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>User</strong></td>
+              <td><code>id (Int)</code></td>
+              <td>Taught courses, enrollments, submissions, profile, files, attempts</td>
+              <td><code>email @unique</code></td>
+              <td>Central identity entity with role-based permissions (STUDENT, TEACHER, ADMIN).</td>
+            </tr>
+            <tr>
+              <td><strong>Course</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>teacherId &rarr; User(id)</code> (onDelete: SetNull)</td>
+              <td><code>code @unique</code>, <code>@@index([teacherId])</code></td>
+              <td>Curricular unit with metadata, credits, category, schedule, and syllabus link.</td>
+            </tr>
+            <tr>
+              <td><strong>Enrollment</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>studentId &rarr; User</code>, <code>courseId &rarr; Course</code></td>
+              <td><code>@@unique([studentId, courseId])</code></td>
+              <td>Tracks student enrollment, academic progress (0-100%), and completion status.</td>
+            </tr>
+            <tr>
+              <td><strong>Assignment</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>courseId &rarr; Course(id)</code> (onDelete: Cascade)</td>
+              <td><code>@@index([courseId, dueDate])</code></td>
+              <td>Graded task with prompt, maximum points, due date, and optional attachment.</td>
+            </tr>
+            <tr>
+              <td><strong>AssignmentSubmission</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>assignmentId &rarr; Assignment</code>, <code>studentId &rarr; User</code></td>
+              <td><code>@@unique([assignmentId, studentId])</code></td>
+              <td>Student submission with uploaded file URL, status, score, and teacher feedback.</td>
+            </tr>
+            <tr>
+              <td><strong>StudentProfile</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>userId &rarr; User(id)</code> (onDelete: Cascade)</td>
+              <td><code>userId @unique</code></td>
+              <td>1:1 demographic profile (phone, DOB, blood group, avatar, emergency contacts).</td>
+            </tr>
+            <tr>
+              <td><strong>Announcement</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>courseId &rarr; Course</code>, <code>authorId &rarr; User</code></td>
+              <td><code>@@index([courseId, createdAt])</code></td>
+              <td>Course announcements with priority levels (LOW, NORMAL, HIGH, URGENT).</td>
+            </tr>
+            <tr>
+              <td><strong>PrivateFolder</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>userId &rarr; User(id)</code> (onDelete: Cascade)</td>
+              <td><code>@@unique([userId, name])</code></td>
+              <td>User-isolated organizational directories for private cloud file management.</td>
+            </tr>
+            <tr>
+              <td><strong>PrivateFile</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>userId &rarr; User</code>, <code>folderId &rarr; PrivateFolder</code></td>
+              <td><code>storageKey @unique</code>, <code>@@index([userId, createdAt])</code></td>
+              <td>Metadata pointer to binary objects stored in Cloudflare R2 bucket.</td>
+            </tr>
+            <tr>
+              <td><strong>Quiz</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>courseId &rarr; Course(id)</code> (onDelete: Cascade)</td>
+              <td><code>@@index([courseId])</code>, <code>@@index([status])</code></td>
+              <td>Timed quiz container (duration, total marks, status: DRAFT/PUBLISHED/CLOSED).</td>
+            </tr>
+            <tr>
+              <td><strong>QuizQuestion</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>quizId &rarr; Quiz(id)</code> (onDelete: Cascade)</td>
+              <td><code>@@index([quizId, order])</code></td>
+              <td>Multiple-choice item with JSON options array, correct answer, and points.</td>
+            </tr>
+            <tr>
+              <td><strong>QuizAnswer</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>attemptId &rarr; QuizAttempt</code>, <code>questionId &rarr; QuizQuestion</code></td>
+              <td><code>@@unique([attemptId, questionId])</code></td>
+              <td>Student's submitted answer per question with evaluation score and correctness.</td>
+            </tr>
+            <tr>
+              <td><strong>QuizAttempt</strong></td>
+              <td><code>id (Int)</code></td>
+              <td><code>quizId &rarr; Quiz</code>, <code>studentId &rarr; User</code></td>
+              <td><code>@@index([quizId, studentId])</code></td>
+              <td>Timed test session tracking start time, submit time, score, and status.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>5.2 Relational Entity Relationship Diagram</h2>
+      <div class="diagram-wrapper">
+        <svg viewBox="0 0 880 440" class="diagram-svg" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="db-header-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#1e293b" />
+              <stop offset="100%" stop-color="#0f172a" />
+            </linearGradient>
+            <linearGradient id="db-header-indigo" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#4338ca" />
+              <stop offset="100%" stop-color="#3730a3" />
+            </linearGradient>
+            <linearGradient id="db-header-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#059669" />
+              <stop offset="100%" stop-color="#047857" />
+            </linearGradient>
+          </defs>
+
+          <!-- Outer boundary -->
+          <rect x="10" y="10" width="860" height="420" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" />
+
+          <!-- Table: User -->
+          <g transform="translate(30, 30)">
+            <rect width="180" height="150" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+            <rect width="180" height="32" rx="8" fill="url(#db-header-blue)" />
+            <rect y="24" width="180" height="8" fill="url(#db-header-blue)" />
+            <text x="12" y="21" fill="#ffffff" font-size="12" font-weight="700">User (Identity)</text>
+            <text x="12" y="52" fill="#0f172a" font-size="10" font-family="monospace">PK  id : Int</text>
+            <text x="12" y="70" fill="#0f172a" font-size="10" font-family="monospace">UQ  email : String</text>
+            <text x="12" y="88" fill="#64748b" font-size="10" font-family="monospace">    password : Hash</text>
+            <text x="12" y="106" fill="#64748b" font-size="10" font-family="monospace">    role : Enum</text>
+            <text x="12" y="124" fill="#64748b" font-size="10" font-family="monospace">    createdAt : Date</text>
+          </g>
+
+          <!-- Table: Course -->
+          <g transform="translate(260, 30)">
+            <rect width="180" height="150" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+            <rect width="180" height="32" rx="8" fill="url(#db-header-indigo)" />
+            <rect y="24" width="180" height="8" fill="url(#db-header-indigo)" />
+            <text x="12" y="21" fill="#ffffff" font-size="12" font-weight="700">Course (Academic)</text>
+            <text x="12" y="52" fill="#0f172a" font-size="10" font-family="monospace">PK  id : Int</text>
+            <text x="12" y="70" fill="#0f172a" font-size="10" font-family="monospace">UQ  code : String</text>
+            <text x="12" y="88" fill="#64748b" font-size="10" font-family="monospace">    title : String</text>
+            <text x="12" y="106" fill="#0f172a" font-size="10" font-family="monospace">FK  teacherId : Int?</text>
+            <text x="12" y="124" fill="#64748b" font-size="10" font-family="monospace">    credits : Int</text>
+          </g>
+
+          <!-- Table: Enrollment -->
+          <g transform="translate(145, 220)">
+            <rect width="180" height="130" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+            <rect width="180" height="32" rx="8" fill="#475569" />
+            <rect y="24" width="180" height="8" fill="#475569" />
+            <text x="12" y="21" fill="#ffffff" font-size="12" font-weight="700">Enrollment</text>
+            <text x="12" y="52" fill="#0f172a" font-size="10" font-family="monospace">PK  id : Int</text>
+            <text x="12" y="70" fill="#0f172a" font-size="10" font-family="monospace">FK  studentId : Int</text>
+            <text x="12" y="88" fill="#0f172a" font-size="10" font-family="monospace">FK  courseId : Int</text>
+            <text x="12" y="106" fill="#64748b" font-size="10" font-family="monospace">UQ  [student,course]</text>
+          </g>
+
+          <!-- Table: Quiz -->
+          <g transform="translate(490, 30)">
+            <rect width="170" height="150" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+            <rect width="170" height="32" rx="8" fill="url(#db-header-emerald)" />
+            <rect y="24" width="170" height="8" fill="url(#db-header-emerald)" />
+            <text x="12" y="21" fill="#ffffff" font-size="12" font-weight="700">Quiz</text>
+            <text x="12" y="52" fill="#0f172a" font-size="10" font-family="monospace">PK  id : Int</text>
+            <text x="12" y="70" fill="#0f172a" font-size="10" font-family="monospace">FK  courseId : Int</text>
+            <text x="12" y="88" fill="#64748b" font-size="10" font-family="monospace">    durationMinutes</text>
+            <text x="12" y="106" fill="#64748b" font-size="10" font-family="monospace">    status : Enum</text>
+            <text x="12" y="124" fill="#64748b" font-size="10" font-family="monospace">    totalMarks : Int</text>
+          </g>
+
+          <!-- Table: QuizQuestion -->
+          <g transform="translate(490, 220)">
+            <rect width="170" height="130" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+            <rect width="170" height="32" rx="8" fill="url(#db-header-emerald)" />
+            <rect y="24" width="170" height="8" fill="url(#db-header-emerald)" />
+            <text x="12" y="21" fill="#ffffff" font-size="12" font-weight="700">QuizQuestion</text>
+            <text x="12" y="52" fill="#0f172a" font-size="10" font-family="monospace">PK  id : Int</text>
+            <text x="12" y="70" fill="#0f172a" font-size="10" font-family="monospace">FK  quizId : Int</text>
+            <text x="12" y="88" fill="#64748b" font-size="10" font-family="monospace">    options : Json</text>
+            <text x="12" y="106" fill="#64748b" font-size="10" font-family="monospace">    correctAnswer</text>
+          </g>
+
+          <!-- Table: QuizAttempt -->
+          <g transform="translate(690, 30)">
+            <rect width="160" height="150" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+            <rect width="160" height="32" rx="8" fill="#0284c7" />
+            <rect y="24" width="160" height="8" fill="#0284c7" />
+            <text x="12" y="21" fill="#ffffff" font-size="12" font-weight="700">QuizAttempt</text>
+            <text x="12" y="52" fill="#0f172a" font-size="10" font-family="monospace">PK  id : Int</text>
+            <text x="12" y="70" fill="#0f172a" font-size="10" font-family="monospace">FK  quizId : Int</text>
+            <text x="12" y="88" fill="#0f172a" font-size="10" font-family="monospace">FK  studentId : Int</text>
+            <text x="12" y="106" fill="#64748b" font-size="10" font-family="monospace">    score : Int?</text>
+            <text x="12" y="124" fill="#64748b" font-size="10" font-family="monospace">    status : Enum</text>
+          </g>
+
+          <!-- Table: QuizAnswer -->
+          <g transform="translate(690, 220)">
+            <rect width="160" height="130" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+            <rect width="160" height="32" rx="8" fill="#0284c7" />
+            <rect y="24" width="160" height="8" fill="#0284c7" />
+            <text x="12" y="21" fill="#ffffff" font-size="12" font-weight="700">QuizAnswer</text>
+            <text x="12" y="52" fill="#0f172a" font-size="10" font-family="monospace">PK  id : Int</text>
+            <text x="12" y="70" fill="#0f172a" font-size="10" font-family="monospace">FK  attemptId : Int</text>
+            <text x="12" y="88" fill="#0f172a" font-size="10" font-family="monospace">FK  questionId : Int</text>
+            <text x="12" y="106" fill="#64748b" font-size="10" font-family="monospace">UQ  [attempt,quest]</text>
+          </g>
+
+          <!-- Relationship Connectors -->
+          <!-- User to Course -->
+          <path d="M 210 80 L 260 80" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4" marker-end="url(#arrow)" />
+          <!-- Course to Quiz -->
+          <path d="M 440 80 L 490 80" stroke="#94a3b8" stroke-width="2" />
+          <!-- Quiz to Question -->
+          <path d="M 575 180 L 575 220" stroke="#94a3b8" stroke-width="2" />
+          <!-- Quiz to Attempt -->
+          <path d="M 660 80 L 690 80" stroke="#94a3b8" stroke-width="2" />
+          <!-- Attempt to Answer -->
+          <path d="M 770 180 L 770 220" stroke="#94a3b8" stroke-width="2" />
+          <!-- Question to Answer -->
+          <path d="M 660 280 L 690 280" stroke="#94a3b8" stroke-width="2" />
+          <!-- User to Enrollment -->
+          <path d="M 120 180 L 120 280 L 145 280" stroke="#94a3b8" stroke-width="2" />
+          <!-- Course to Enrollment -->
+          <path d="M 350 180 L 350 280 L 325 280" stroke="#94a3b8" stroke-width="2" />
+        </svg>
+      </div>
+
+      <h2>5.3 Complete Prisma Migration History (12 Applied Migrations)</h2>
+      <p>Every single database modification in CampusHub has been committed as a deterministic, version-controlled SQL migration under <code>Server/prisma/migrations/</code>:</p>
+
+      <div class="table-container">
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Migration Directory</th>
+              <th>Architectural Purpose &amp; Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td><code>20261019131546_create_user</code></td>
+              <td>Initialized core user authentication schema with role-based segregation.</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td><code>20261019203025_add_pending_registration</code></td>
+              <td>Introduced temporary OTP verification holding table (later safely removed).</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td><code>20261020102822_add_course_model</code></td>
+              <td>Created academic Course model linked to faculty instructors.</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td><code>20261020175730_add_course_display_fields</code></td>
+              <td>Added thumbnail, credit units, category, schedule, and instructor role metadata.</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td><code>20261020190043_add_enrollment</code></td>
+              <td>Introduced Enrollment join table with compound unique constraint preventing duplicate course entries.</td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td><code>20261021113254_add_course_details</code></td>
+              <td>Expanded course model with office hours, syllabus links, and PostgreSQL text array for learning objectives.</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td><code>20261021140045_add_lms_workflow</code></td>
+              <td>Added Assignment and AssignmentSubmission entities supporting grading and feedback lifecycles.</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td><code>20261024120257_add_student_profile</code></td>
+              <td>Created 1:1 StudentProfile table for comprehensive demographic and avatar management.</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td><code>20261024135314_add_announcements</code></td>
+              <td>Added Announcement table supporting course-scoped notifications with priority levels.</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td><code>20261024202140_add_private_uploads</code></td>
+              <td>Created PrivateFolder and PrivateFile models indexing user objects in Cloudflare R2.</td>
+            </tr>
+            <tr>
+              <td>11</td>
+              <td><code>20261025130513_add_quizzes</code></td>
+              <td>Comprehensive assessment engine migration: Quiz, QuizQuestion, QuizAnswer, and QuizAttempt tables.</td>
+            </tr>
+            <tr>
+              <td>12</td>
+              <td><code>20261028014000_remove_pending_registration_and_otp</code></td>
+              <td>Completely dropped PendingRegistration table and wiped temporary OTP artifacts from the system.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>5.4 Safe Migration Workflows &amp; Serverless Discipline</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title">Development: `prisma migrate dev`</h3>
+          <p class="text-sm">In local development, developers run <code>npx prisma migrate dev</code>. This command compares <code>schema.prisma</code> against the current database state, generates a readable <code>migration.sql</code> script, applies it locally, and updates the local Prisma client types.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Production CI/CD: `prisma migrate deploy`</h3>
+          <p class="text-sm">In production (Render build lifecycle), <strong>only</strong> <code>npx prisma migrate deploy</code> is executed. It compares committed migration files against the <code>_prisma_migrations</code> tracking table and applies new migrations non-interactively without prompting or modifying schema files.</p>
+        </div>
+      </div>
+
+      <div class="callout callout-warning">
+        <div class="callout-title">Engineering Rule: Never Run `prisma db push` in Production</div>
+        <div class="callout-content">
+          <code>prisma db push</code> synchronizes the database directly from schema files without producing migration history. In production, this can accidentally drop tables, lose historical audit trails, and break deterministic rollbacks. Production systems must always maintain an immutable, sequential migration history.
+        </div>
+      </div>
+    </section>
+  
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part-6">
+      <div class="chapter-header">
+        <span class="chapter-tag">SECURITY &amp; IDENTITY POST-MORTEM</span>
+        <h1>Part 6 — Authentication System &amp; Email OTP Removal Post-Mortem</h1>
+      </div>
+
+      <h2>6.1 Executive Post-Mortem: Why Email OTP Was Completely Removed</h2>
+      <p>
+        In modern full-stack development, knowing <em>what code to delete</em> is as critical as knowing what to write. CampusHub initially included a 6-digit email One-Time Password (OTP) verification system buffered in a <code>PendingRegistration</code> PostgreSQL table. During systematic staging audits, this architecture proved to be an operational bottleneck.
+      </p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title text-red">1. SMTP Deliverability Fragility</h3>
+          <p class="text-sm">External transactional SMTP relays introduce unpredictable 10 to 120-second latencies and frequent spam folder false positives, leading to student drop-offs and frustrating verification loops.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title text-red">2. Database State Bloat</h3>
+          <p class="text-sm">Unverified registrations accumulated abandoned records in the database, necessitating recurring cleanup cron jobs and wasting storage on phantom accounts.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title text-red">3. Frontend State Complexity</h3>
+          <p class="text-sm">Managing cooldown timers, resend intervals, expiration countdowns, and multi-box input synchronizations added substantial frontend debt for minimal security gain.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title text-emerald">4. The Direct Registration Solution</h3>
+          <p class="text-sm">Replacing OTP with direct atomic registration (<code>Register &rarr; Bcrypt &rarr; Postgres &rarr; Immediate Login</code>) eliminated external failure points while maintaining strict cryptographic password hashing.</p>
+        </div>
+      </div>
+
+      <h2>6.2 Full-Stack Removal Architecture: Before vs After</h2>
+      <div class="table-container">
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Legacy OTP Architecture</th>
+              <th>Refactored Direct Registration Architecture</th>
+              <th>Key Engineering Benefit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Frontend UI</strong></td>
+              <td>Register Form &rarr; 6-Box OTP Modal &rarr; 60s Resend Timer &rarr; Redirect</td>
+              <td>Register Form &rarr; Instant Toast &rarr; Direct Redirect to Login</td>
+              <td>Zero UI freezing, no countdown state bugs, seamless user experience.</td>
+            </tr>
+            <tr>
+              <td><strong>API Endpoints</strong></td>
+              <td><code>/send-otp</code>, <code>/verify-otp</code>, <code>/resend-otp</code>, <code>/register</code></td>
+              <td><code>POST /api/auth/register</code>, <code>POST /api/auth/login</code></td>
+              <td>Reduced attack surface by 60%, simplified routing and controller logic.</td>
+            </tr>
+            <tr>
+              <td><strong>Database Schema</strong></td>
+              <td><code>User</code> + <code>PendingRegistration</code> (OTP hash, expiry timestamp)</td>
+              <td><code>User</code> (Clean, normalized, single source of identity truth)</td>
+              <td>Dropped <code>PendingRegistration</code> table via migration 12. Zero zombie rows.</td>
+            </tr>
+            <tr>
+              <td><strong>External Deps</strong></td>
+              <td>Nodemailer, SMTP server credentials, network socket relays</td>
+              <td>Zero external network dependencies. 100% self-contained.</td>
+              <td>Registration operates at wire speed (15-40ms database write time).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>6.3 Current Active Trust Boundaries &amp; Password Cryptography</h2>
+      <p>CampusHub relies on industry-standard cryptographic primitives to safeguard user identities:</p>
+      <ul>
+        <li><strong>Bcrypt Salt Hashing:</strong> User passwords are never stored in plaintext. They are salted and hashed using <code>bcryptjs</code> with 10 salt rounds before touching PostgreSQL.</li>
+        <li><strong>Constant-Time Password Comparison:</strong> During login, <code>bcrypt.compare()</code> prevents timing attacks by verifying password hashes in constant time.</li>
+        <li><strong>Cryptographic JWT Signing:</strong> Successful logins issue an HMAC-SHA256 signed JSON Web Token carrying <code>{ id, email, role }</code>, signed with a 256-bit environment secret (<code>JWT_SECRET</code>).</li>
+        <li><strong>Server-Side Role Guard:</strong> All incoming requests pass through <code>authenticateToken</code> and <code>authorizeRoles</code> middleware. Tampering with the client-side role in localStorage is rejected at the API layer because the token signature verification fails.</li>
+      </ul>
+
+      <h2>6.4 Institutional Single Sign-On (SSO) Roadmap</h2>
+      <p>For an enterprise production deployment across a university with tens of thousands of users, the recommended progression is <strong>Federated Single Sign-On</strong>:</p>
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title">OpenID Connect / Google Workspace</h3>
+          <p class="text-sm">Allows students to authenticate using their official institutional email (<code>@university.edu</code>) via Google or Microsoft Azure AD OAuth 2.0 endpoints, eliminating password management entirely.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">SAML 2.0 / Shibboleth Federation</h3>
+          <p class="text-sm">The gold standard in higher education. Connects directly to campus identity providers (IdPs), providing centralized multi-factor authentication (MFA) and automated roster synchronization.</p>
+        </div>
+      </div>
+    </section>
+  
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part-7">
+      <div class="chapter-header">
+        <span class="chapter-tag">SYSTEMS DEBUGGING</span>
+        <h1>Part 7 — 6 Real-World Debugging Case Studies</h1>
+      </div>
+
+      <p class="lead">
+        True senior engineering competence is forged during debugging. The following six case studies document real architectural challenges encountered, investigated, and permanently resolved during the development of CampusHub LMS.
+      </p>
+
+      <!-- Case 1 -->
+      <div class="card" style="margin-bottom: 24px;">
+        <span class="badge badge-purple">CASE STUDY 1</span>
+        <h3 class="card-title" style="margin-top: 8px;">The Invisible Modal Bug (Prop Name Mismatch)</h3>
+        <p class="text-sm"><strong>Observable Symptom:</strong> Clicking "Create Quiz", "Add Question", or "Quiz Settings" on <code>/teacher/quizzes</code> triggered state updates, but the modal dialog never appeared on screen. No console errors were generated.</p>
+        <p class="text-sm"><strong>Root Cause:</strong> <code>Modal.jsx</code> expected <code>isOpen</code>, but the calling parent page passed <code>open={isCreateOpen}</code>. Because <code>isOpen</code> was <code>undefined</code>, the modal silently rendered <code>null</code>.</p>
+        <div class="callout callout-info" style="margin: 12px 0;">
+          <div class="callout-title">The Engineering Fix</div>
+          <div class="callout-content">
+            Updated <code>Modal.jsx</code> with a defensive fallback: <code>const isVisible = isOpen !== undefined ? isOpen : open; if (!isVisible) return null;</code>. This resolved all modal invocations across the portal instantly.
+          </div>
+        </div>
+      </div>
+
+      <!-- Case 2 -->
+      <div class="card" style="margin-bottom: 24px;">
+        <span class="badge badge-purple">CASE STUDY 2</span>
+        <h3 class="card-title" style="margin-top: 8px;">The Race Condition Double-Attempt Bug in React 18 StrictMode</h3>
+        <p class="text-sm"><strong>Observable Symptom:</strong> Starting a quiz generated two duplicate <code>QuizAttempt</code> records in PostgreSQL timestamped 1 to 3ms apart, leaving students stuck in an invalid state.</p>
+        <p class="text-sm"><strong>Root Cause:</strong> React 18 StrictMode double-mounts components in development. Two concurrent <code>POST /api/quizzes/:id/start</code> requests executed simultaneously before either had written to PostgreSQL.</p>
+        <div class="callout callout-info" style="margin: 12px 0;">
+          <div class="callout-title">The Engineering Fix</div>
+          <div class="callout-content">
+            Implemented a three-layer defense: (1) Added <code>initiatingRef = useRef(false)</code> on the frontend to block multi-execution, (2) Made the backend start endpoint idempotent by returning existing in-progress attempts, and (3) Added an atomic transaction cleaning up zero-answer orphaned attempts.
+          </div>
+        </div>
+      </div>
+
+      <!-- Case 3 -->
+      <div class="card" style="margin-bottom: 24px;">
+        <span class="badge badge-purple">CASE STUDY 3</span>
+        <h3 class="card-title" style="margin-top: 8px;">Prisma 6 vs Prisma 7 VS Code Extension Conflict</h3>
+        <p class="text-sm"><strong>Observable Symptom:</strong> VS Code editor highlighted <code>url = env("DATABASE_URL")</code> with errors stating <code>url</code> is no longer supported in Prisma 7, even though the project installed Prisma 6.19.3.</p>
+        <p class="text-sm"><strong>Root Cause:</strong> VS Code's Prisma extension auto-updated to v31.13.0+, running the Prisma 7 Language Server which enforced unreleased Prisma 7 configuration rules on a Prisma 6 project.</p>
+        <div class="callout callout-info" style="margin: 12px 0;">
+          <div class="callout-title">The Engineering Fix</div>
+          <div class="callout-content">
+            Added <code>"prisma.pinToPrisma6": true</code> in <code>.vscode/settings.json</code>, forcing the editor language server to respect Prisma 6 syntax rules.
+          </div>
+        </div>
+      </div>
+
+      <!-- Case 4 -->
+      <div class="card" style="margin-bottom: 24px;">
+        <span class="badge badge-purple">CASE STUDY 4</span>
+        <h3 class="card-title" style="margin-top: 8px;">Shell Environment Sourcing Failures with Whitespace in .env</h3>
+        <p class="text-sm"><strong>Observable Symptom:</strong> Express server defaulted to fallback ports or failed to connect to Neon database because environment variables evaluated to <code>undefined</code>.</p>
+        <p class="text-sm"><strong>Root Cause:</strong> Spaces around the equals sign (<code>PORT = 2000</code>) violated POSIX shell key-value parsing, causing <code>dotenv</code> to misidentify variable names.</p>
+        <div class="callout callout-info" style="margin: 12px 0;">
+          <div class="callout-title">The Engineering Fix</div>
+          <div class="callout-content">
+            Sanitized all environment variable declarations to strict POSIX <code>KEY=VALUE</code> syntax with zero whitespace surrounding the equals operator.
+          </div>
+        </div>
+      </div>
+
+      <!-- Case 5 -->
+      <div class="card" style="margin-bottom: 24px;">
+        <span class="badge badge-purple">CASE STUDY 5</span>
+        <h3 class="card-title" style="margin-top: 8px;">S3/R2 Blob Orphan Prevention via Compensating Transactions</h3>
+        <p class="text-sm"><strong>Observable Symptom:</strong> When database writes failed after an S3/R2 upload, binary objects remained stranded in Cloudflare R2 indefinitely with no database reference.</p>
+        <p class="text-sm"><strong>Root Cause:</strong> Distributed two-phase write across independent cloud services without automated compensation logic.</p>
+        <div class="callout callout-info" style="margin: 12px 0;">
+          <div class="callout-title">The Engineering Fix</div>
+          <div class="callout-content">
+            Implemented the <strong>Compensating Transaction Pattern (Saga)</strong>: if PostgreSQL metadata creation throws any error, the controller immediately executes <code>DeleteObjectCommand</code> to delete the R2 object before returning a 500 status.
+          </div>
+        </div>
+      </div>
+
+      <!-- Case 6 -->
+      <div class="card" style="margin-bottom: 24px;">
+        <span class="badge badge-purple">CASE STUDY 6</span>
+        <h3 class="card-title" style="margin-top: 8px;">Vercel Stale Deployment Due to Uncommitted Git State</h3>
+        <p class="text-sm"><strong>Observable Symptom:</strong> Production URL on Vercel displayed outdated UI components and called deprecated endpoints after code edits were supposedly completed.</p>
+        <p class="text-sm"><strong>Root Cause:</strong> Frontend modifications were left unstaged in the local git repository; only backend commits had been pushed to GitHub.</p>
+        <div class="callout callout-info" style="margin: 12px 0;">
+          <div class="callout-title">The Engineering Fix</div>
+          <div class="callout-content">
+            Standardized release checklist: run <code>git status</code> across both directories, stage frontend and backend changes cohesively, push to GitHub, and verify Vercel build status dashboard.
+          </div>
+        </div>
+      </div>
+    </section>
+  
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part-8">
+      <div class="chapter-header">
+        <span class="chapter-tag">GROWTH &amp; SELF-AUDIT</span>
+        <h1>Part 8 — Learning Progression &amp; Personal Skills Audit</h1>
+      </div>
+
+      <h2>8.1 Personal Technical Skills Audit Matrix</h2>
+      <p>
+        Building CampusHub LMS from initial scaffolding to multi-cloud deployment provided end-to-end exposure across modern full-stack development. This audit provides an honest, evidence-based assessment of technical competencies.
+      </p>
+
+      <div class="table-container">
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Domain</th>
+              <th>Proficiency</th>
+              <th>Concrete Proof in CampusHub</th>
+              <th>Next Mastery Target</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Frontend Engineering</strong></td>
+              <td><span class="badge badge-emerald">Advanced</span></td>
+              <td>React 19 SPA, Tailwind CSS v4 design system, dynamic routing, reusable UI primitives (modals, tables, alerts).</td>
+              <td>TanStack Query for cache invalidation, React Server Components.</td>
+            </tr>
+            <tr>
+              <td><strong>Backend &amp; API Design</strong></td>
+              <td><span class="badge badge-emerald">Advanced</span></td>
+              <td>Node.js 26, Express 5, role-based authorization middleware, clean controller-service separation.</td>
+              <td>OpenAPI / Swagger automated contract testing, rate-limiting algorithms.</td>
+            </tr>
+            <tr>
+              <td><strong>Relational Database</strong></td>
+              <td><span class="badge badge-emerald">Advanced</span></td>
+              <td>PostgreSQL on Neon, Prisma ORM 6, 13 relational models, 12 versioned migrations, compound unique indexes.</td>
+              <td>Redis caching, connection pooling optimization, query execution plan analysis (EXPLAIN).</td>
+            </tr>
+            <tr>
+              <td><strong>Cloud Object Storage</strong></td>
+              <td><span class="badge badge-blue">Proficient</span></td>
+              <td>Cloudflare R2 integration via AWS S3 SDK v3, 60s presigned URLs, zero-egress cost architecture.</td>
+              <td>Multipart chunked streaming uploads for large media files (>100MB).</td>
+            </tr>
+            <tr>
+              <td><strong>Security &amp; Auth</strong></td>
+              <td><span class="badge badge-blue">Proficient</span></td>
+              <td>Stateless JWT signing, bcrypt salt hashing, role authorization guards, sanitization of password fields.</td>
+              <td>HTTPOnly cookie transport, refresh token rotation, OAuth 2.0 / Google SSO.</td>
+            </tr>
+            <tr>
+              <td><strong>Distributed Systems</strong></td>
+              <td><span class="badge badge-purple">Competent</span></td>
+              <td>Compensating Transaction Pattern (Saga) preventing orphaned R2 blobs when database writes fail.</td>
+              <td>Event-driven message queues (BullMQ / RabbitMQ), transactional outbox pattern.</td>
+            </tr>
+            <tr>
+              <td><strong>Automated Testing</strong></td>
+              <td><span class="badge badge-orange">Emerging</span></td>
+              <td>Defensive boundary testing, manual Postman/curl regression verification.</td>
+              <td>Vitest unit testing, Supertest API integration suites, Playwright E2E tests.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>8.2 Three Critical Mindset Shifts</h2>
+      <div class="grid-3">
+        <div class="card">
+          <h3 class="card-title">1. Defensive Thinking</h3>
+          <p class="text-sm">Moved from assuming network perfection to designing for failure: debouncing button clicks, locking concurrent submissions with React <code>useRef</code>, and rolling back partial cloud writes.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">2. State Discipline</h3>
+          <p class="text-sm">Recognized that frontend state should never compete with backend data. Kept PostgreSQL as the absolute source of truth and minimized client-side caching discrepancies.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">3. The Power of Deletion</h3>
+          <p class="text-sm">Understood that senior engineering is about simplicity. Removing email OTP deleted 300+ lines of brittle code, removed database bloat, and improved onboarding speeds by 10x.</p>
+        </div>
+      </div>
+    </section>
+  
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part-9">
+      <div class="chapter-header">
+        <span class="chapter-tag">CAREER READINESS</span>
+        <h1>Part 9 — Complete Interview Preparation Kit</h1>
+      </div>
+
+      <h2>9.1 The Elevator Pitches</h2>
+      <div class="card" style="margin-bottom: 20px;">
+        <span class="badge badge-blue">30-SECOND PITCH</span>
+        <p class="text-sm" style="margin-top: 8px;">
+          "I built <strong>CampusHub</strong>, a production-grade full-stack LMS engineered for universities. It features role-based student and teacher portals, timed quiz assessments with automated grading, assignment submissions, and a private Cloudflare R2 file vault. Built with React 19, Tailwind CSS v4, Express 5, Prisma ORM, and PostgreSQL on Neon, I focused heavily on edge cases like race conditions in concurrent quiz attempts, database migration safety, and compensating transactions for distributed file uploads."
+        </p>
+      </div>
+
+      <div class="card" style="margin-bottom: 20px;">
+        <span class="badge badge-purple">2-MINUTE DEEP DIVE</span>
+        <p class="text-sm" style="margin-top: 8px;">
+          "When architecting CampusHub, my priority was decoupling and resilience. The frontend is a React 19 SPA on Vercel with role-based routing guards. The backend is an Express 5 API on Render using Prisma ORM with PostgreSQL on Neon. 
+          Rather than streaming heavy binary files through the database, I integrated Cloudflare R2 using AWS S3 SDK presigned URLs with 60-second expiration. If a database insert fails after an upload, the controller triggers an automated compensating delete to prevent orphaned blobs. I also resolved subtle edge cases, such as React 18 StrictMode triggering concurrent duplicate quiz attempts, by introducing idempotent API endpoints and client-side ref locks."
+        </p>
+      </div>
+
+      <h2>9.2 30 Categorized Technical Interview Questions &amp; Model Answers</h2>
+      <p class="lead">Structured into 10 Beginner, 10 Intermediate, and 10 Advanced questions reflecting real technical interview rounds.</p>
+
+      <div class="table-container">
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Difficulty</th>
+              <th>Topic / Question</th>
+              <th>Core Concept Tested</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1-10</td>
+              <td><span class="badge badge-blue">Beginner</span></td>
+              <td>React Props/State, Express Middleware, REST, .env Security, PK/FK, JWT Basics, Bcrypt, DevDependencies, CORS, useEffect.</td>
+              <td>Core web fundamentals, HTTP protocol, state lifecycles, and security hygiene.</td>
+            </tr>
+            <tr>
+              <td>11-20</td>
+              <td><span class="badge badge-emerald">Intermediate</span></td>
+              <td>Prisma vs SQL, Cascade vs SetNull, Presigned URLs, RBAC Middleware, OTP Removal Trade-offs, Select vs Include, SPA Routing on CDN, DB Migrations, Multer Buffers, Neon Connection Pooling.</td>
+              <td>Data modeling, cloud storage security, performance optimization, and API design.</td>
+            </tr>
+            <tr>
+              <td>21-30</td>
+              <td><span class="badge badge-purple">Advanced</span></td>
+              <td>StrictMode Race Conditions, Saga Compensation Pattern, Token Storage Security, 100k Concurrent Scalability, Prisma Language Server Conflicts, Atomic Transactions, Tailwind v4 Engine, Monolith vs Microservices.</td>
+              <td>Distributed systems, concurrency control, systems architecture, and engineering trade-offs.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>9.3 Honest Limitations &amp; Senior Improvement Pitch</h2>
+      <div class="callout callout-info">
+        <div class="callout-title">How to Answer: "What Would You Improve?"</div>
+        <div class="callout-content">
+          Highlight three realistic improvements: (1) <strong>Automated Testing:</strong> Implement Vitest unit tests and Supertest API suites to establish automated CI quality gates; (2) <strong>Token Transport:</strong> Transition from <code>localStorage</code> to <code>httpOnly</code> cookies with refresh token rotation; (3) <strong>Asynchronous Queues:</strong> Offload heavy assessment scoring to Redis and BullMQ worker queues to maintain sub-10ms API latency under load.
+        </div>
+      </div>
+    </section>
+  
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part-10">
+      <div class="chapter-header">
+        <span class="chapter-tag">MASTERY BLUEPRINT</span>
+        <h1>Part 10 — Structured 4-Week Full-Stack Mastery Roadmap</h1>
+      </div>
+
+      <p class="lead">
+        A disciplined, milestone-driven curriculum designed to elevate your architectural capabilities from full-stack developer to production-ready software engineer.
+      </p>
+
+      <div class="grid-2">
+        <div class="card">
+          <span class="badge badge-blue">WEEK 1</span>
+          <h3 class="card-title">Automated Testing &amp; Reliability</h3>
+          <ul class="text-sm">
+            <li>Configure Vitest &amp; Supertest integration test suites.</li>
+            <li>Test JWT authentication guards and role middleware.</li>
+            <li>Mock Cloudflare R2 SDK to test compensating rollbacks.</li>
+            <li>Test React components with React Testing Library.</li>
+            <li><strong>Deliverable:</strong> Automated CI test suite running in &lt;15 seconds.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <span class="badge badge-emerald">WEEK 2</span>
+          <h3 class="card-title">Advanced State &amp; WebSockets</h3>
+          <ul class="text-sm">
+            <li>Migrate frontend data fetching to TanStack Query.</li>
+            <li>Implement optimistic UI updates for assignments and quizzes.</li>
+            <li>Set up Socket.io authenticated via JWT handshake.</li>
+            <li>Broadcast live real-time announcements to enrolled students.</li>
+            <li><strong>Deliverable:</strong> Zero manual useEffect fetching; instant live updates.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <span class="badge badge-purple">WEEK 3</span>
+          <h3 class="card-title">Redis Caching &amp; API Hardening</h3>
+          <ul class="text-sm">
+            <li>Integrate Upstash Redis for serverless caching.</li>
+            <li>Implement cache-aside pattern on course and quiz catalogs.</li>
+            <li>Analyze query execution plans with <code>EXPLAIN ANALYZE</code>.</li>
+            <li>Enforce IP rate limiting on authentication routes.</li>
+            <li><strong>Deliverable:</strong> 70% latency reduction on cached reads; brute-force protection.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <span class="badge badge-orange">WEEK 4</span>
+          <h3 class="card-title">Docker, CI/CD &amp; Observability</h3>
+          <ul class="text-sm">
+            <li>Write multi-stage Dockerfiles for Client and Server.</li>
+            <li>Orchestrate entire stack via Docker Compose.</li>
+            <li>Build automated GitHub Actions CI pipeline on pull requests.</li>
+            <li>Integrate Sentry for distributed crash monitoring.</li>
+            <li><strong>Deliverable:</strong> 1-click local setup; automated deployment test gates.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part-11">
+      <div class="chapter-header">
+        <span class="chapter-tag">ROADMAP &amp; PRIORITIES</span>
+        <h1>Part 11 — Engineering Backlog &amp; Next Features</h1>
+      </div>
+
+      <p class="lead">
+        A structured backlog categorized by the standard industry <strong>P0 (Critical) to P3 (Delighters)</strong> framework to guide the next phases of development.
+      </p>
+
+      <div class="table-container">
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Priority</th>
+              <th>Feature / Improvement</th>
+              <th>Impact</th>
+              <th>Effort</th>
+              <th>Key Architecture Requirement</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-red">P0 - Critical</span></td>
+              <td><strong>Rate Limiting &amp; Brute-Force Defense</strong></td>
+              <td>Prevents credential stuffing attacks on auth endpoints.</td>
+              <td>Low</td>
+              <td><code>express-rate-limit</code> middleware with IP throttling.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-red">P0 - Critical</span></td>
+              <td><strong>Zod Schema Request Validation</strong></td>
+              <td>Guarantees strongly-typed request payloads at API boundary.</td>
+              <td>Medium</td>
+              <td>Validation middleware rejecting malformed requests with 400.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-red">P0 - Critical</span></td>
+              <td><strong>Helmet Security Headers</strong></td>
+              <td>Protects against XSS, clickjacking, and MIME-sniffing.</td>
+              <td>Low</td>
+              <td>Express <code>helmet</code> middleware integration.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-orange">P1 - High</span></td>
+              <td><strong>Course Discussion Forums</strong></td>
+              <td>Drives student-teacher engagement and collaborative learning.</td>
+              <td>Medium</td>
+              <td><code>ForumThread</code> &amp; <code>ForumReply</code> Prisma models.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-orange">P1 - High</span></td>
+              <td><strong>Teacher Gradebook &amp; CSV Export</strong></td>
+              <td>Aggregates all student scores into an institutional grade matrix.</td>
+              <td>Low</td>
+              <td>Dynamic CSV stream generation via <code>fast-csv</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-blue">P2 - Scale</span></td>
+              <td><strong>Refresh Token Rotation in Redis</strong></td>
+              <td>Enterprise-grade security preventing token theft.</td>
+              <td>High</td>
+              <td>Short-lived access tokens + <code>httpOnly</code> refresh cookies.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-blue">P2 - Scale</span></td>
+              <td><strong>BullMQ Asynchronous Job Queue</strong></td>
+              <td>Prevents heavy tasks from blocking the Express event loop.</td>
+              <td>High</td>
+              <td>Redis-backed worker processes for batch processing.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-purple">P3 - Polish</span></td>
+              <td><strong>Dark Mode &amp; Student Activity Heatmap</strong></td>
+              <td>Modernizes UI aesthetics and boosts user engagement.</td>
+              <td>Medium</td>
+              <td>Tailwind CSS v4 CSS variables &amp; SVG contribution grid.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part-12">
+      <div class="chapter-header">
+        <span class="chapter-tag">QUICK REVISION</span>
+        <h1>Part 12 — 1-Page Revision Cheat Sheet</h1>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title">Production Infrastructure</h3>
+          <ul class="text-sm">
+            <li><strong>Frontend:</strong> React 19 SPA on Vercel CDN.</li>
+            <li><strong>Backend:</strong> Express 5 API on Render container.</li>
+            <li><strong>Database:</strong> PostgreSQL on Neon Serverless (AWS us-east-2).</li>
+            <li><strong>Object Store:</strong> Cloudflare R2 (S3-compatible, zero egress).</li>
+            <li><strong>Auth:</strong> Stateless JWT + Bcrypt (10 salt rounds).</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Prisma &amp; Database CLI</h3>
+          <ul class="text-sm">
+            <li><code>npx prisma migrate dev</code> (Local schema migration)</li>
+            <li><code>npx prisma migrate deploy</code> (Production non-interactive)</li>
+            <li><code>npx prisma generate</code> (Update client bindings)</li>
+            <li><code>npx prisma validate</code> (Check schema syntax)</li>
+            <li><code>npx prisma studio</code> (Open database GUI browser)</li>
+          </ul>
+        </div>
+      </div>
+
+      <h2>Top 10 Architectural Principles to Mention in Interviews</h2>
+      <div class="table-container">
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Architectural Principle</th>
+              <th>How CampusHub Implements It</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td><strong>Stateless RBAC</strong></td>
+              <td>Role stored in signed JWT; verified server-side on every protected API call.</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td><strong>Zero-Egress Storage</strong></td>
+              <td>Cloudflare R2 eliminates egress fees; files accessed via 60-second presigned URLs.</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td><strong>Distributed Saga Rollback</strong></td>
+              <td>If PostgreSQL metadata insert fails, controller deletes uploaded R2 blob immediately.</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td><strong>Concurrency Idempotency</strong></td>
+              <td>Frontend <code>useRef</code> lock + backend check prevent duplicate quiz attempt creation.</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td><strong>Connection Pooling</strong></td>
+              <td>Neon PgBouncer (port 6543) enables instant connection reuse across ephemeral requests.</td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td><strong>Migration Discipline</strong></td>
+              <td>Never run <code>db push</code> in production; use version-controlled SQL migrations.</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td><strong>Direct Registration</strong></td>
+              <td>Removed email OTP to eliminate external SMTP relay bottlenecks and registration drop-offs.</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td><strong>Tailwind CSS v4 Engine</strong></td>
+              <td>Lightning CSS Rust compiler provides CSS-first variables and zero-config styling.</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td><strong>SPA Route Fallback</strong></td>
+              <td>Vercel CDN routes all incoming paths to <code>index.html</code> so React Router resolves routes.</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td><strong>Atomic Transactions</strong></td>
+              <td><code>prisma.$transaction</code> wraps multi-table updates (quiz score, answers, attempt status).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  
+    
+
+      <div class="page-break"></div>
+      
+    <section class="chapter" id="part-13">
+      <div class="chapter-header">
+        <span class="chapter-tag">REFERENCE &amp; INDEX</span>
+        <h1>Part 13 — Technical Glossary &amp; Project File Index</h1>
+      </div>
+
+      <h2>13.1 Technical Glossary (35+ Essential Industry Concepts)</h2>
+      <p class="lead">Key engineering definitions contextualized within the CampusHub LMS architecture.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h4 style="margin: 0 0 4px 0; color: #1e293b;">Atomic Transaction</h4>
+          <p class="text-sm">A database operation wrapped in <code>prisma.$transaction</code> where all sub-operations succeed together or roll back completely on error, preventing partial corruption.</p>
+        </div>
+        <div class="card">
+          <h4 style="margin: 0 0 4px 0; color: #1e293b;">Bcrypt &amp; Salt Rounds</h4>
+          <p class="text-sm">One-way cryptographic hash with 10 salt rounds (1024 work factor) protecting user passwords against rainbow tables and brute-force cracking.</p>
+        </div>
+        <div class="card">
+          <h4 style="margin: 0 0 4px 0; color: #1e293b;">Compensating Transaction (Saga)</h4>
+          <p class="text-sm">An explicit undo operation (deleting an uploaded R2 file) triggered when a subsequent distributed database insert fails.</p>
+        </div>
+        <div class="card">
+          <h4 style="margin: 0 0 4px 0; color: #1e293b;">Connection Pooling (PgBouncer)</h4>
+          <p class="text-sm">Neon's managed proxy caching physical PostgreSQL connections, enabling instant query execution across ephemeral serverless requests.</p>
+        </div>
+        <div class="card">
+          <h4 style="margin: 0 0 4px 0; color: #1e293b;">Presigned URLs (60s TTL)</h4>
+          <p class="text-sm">Cryptographically signed URLs allowing authorized clients direct download access to Cloudflare R2 objects without making the bucket public.</p>
+        </div>
+        <div class="card">
+          <h4 style="margin: 0 0 4px 0; color: #1e293b;">Idempotency</h4>
+          <p class="text-sm">Designing API endpoints so that repeated identical requests produce the same side-effect as a single request (e.g., starting an active quiz session).</p>
+        </div>
+      </div>
+
+      <h2>13.2 Project File Cross-Reference Index</h2>
+      <div class="table-container">
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>File Path</th>
+              <th>Architectural Role</th>
+              <th>Key Exports &amp; Functions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Client/src/api/axios.js</code></td>
+              <td>Centralized HTTP Client</td>
+              <td>Axios instance with automatic Bearer token interceptor and 401 handling.</td>
+            </tr>
+            <tr>
+              <td><code>Client/src/context/AuthContext.jsx</code></td>
+              <td>Identity Provider</td>
+              <td>React Context providing <code>user</code>, <code>login()</code>, <code>logout()</code>, and auth state.</td>
+            </tr>
+            <tr>
+              <td><code>Client/src/components/common/Modal.jsx</code></td>
+              <td>Reusable UI Primitive</td>
+              <td>Defensive modal dialog supporting both <code>open</code> and <code>isOpen</code> props.</td>
+            </tr>
+            <tr>
+              <td><code>Server/src/index.js</code></td>
+              <td>Express Server Entry Point</td>
+              <td>Configures Express 5, CORS, JSON limits, route registration, and error handling.</td>
+            </tr>
+            <tr>
+              <td><code>Server/src/lib/prisma.js</code></td>
+              <td>Database Singleton</td>
+              <td>Exports shared <code>PrismaClient</code> instance preventing connection leaks.</td>
+            </tr>
+            <tr>
+              <td><code>Server/src/lib/r2.js</code></td>
+              <td>Cloudflare R2 Client</td>
+              <td>AWS S3 SDK v3 client initialized with Cloudflare endpoint and credentials.</td>
+            </tr>
+            <tr>
+              <td><code>Server/src/controllers/quizController.js</code></td>
+              <td>Assessment Engine</td>
+              <td>Quiz CRUD, question management, idempotent attempt initialization, and grading.</td>
+            </tr>
+            <tr>
+              <td><code>Server/src/controllers/fileController.js</code></td>
+              <td>Cloud Storage Controller</td>
+              <td>Uploads files to R2, creates DB records, handles saga rollbacks, and signs URLs.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  
+    
+
+  </div>
+</body>
+</html>
