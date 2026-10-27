@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../services/api";
+import { getAllAvailableQuizzes } from "../../services/quizService";
 import { useAuth } from "../../hooks/useAuth";
 import {
   AlarmClock,
@@ -33,6 +34,7 @@ export function StudentDashboardPage() {
   const [timetableOpen, setTimetableOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
   const [assignments, setAssignments] = useState([]);
+  const [upcomingQuizzes, setUpcomingQuizzes] = useState([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState("");
 
@@ -44,9 +46,10 @@ export function StudentDashboardPage() {
         setDashboardLoading(true);
         setDashboardError("");
 
-        const [dashRes, assignRes] = await Promise.all([
+        const [dashRes, assignRes, quizRes] = await Promise.all([
           api().get("/dashboard/student"),
           api().get("/assignments/student").catch(() => ({ assignments: [] })),
+          getAllAvailableQuizzes().catch(() => ({ quizzes: [] })),
         ]);
 
         if (!dashRes?.success) {
@@ -58,6 +61,7 @@ export function StudentDashboardPage() {
         if (!cancelled) {
           setDashboardData(dashRes);
           setAssignments(assignRes?.assignments || []);
+          setUpcomingQuizzes((quizRes?.quizzes || []).filter((q) => !q.hasAttempted));
         }
       } catch (error) {
         if (!cancelled) {
@@ -155,8 +159,6 @@ export function StudentDashboardPage() {
         : "Recently",
     }));
   }, [completedAssignments]);
-
-  const upcomingQuizzes = [];
 
   const deadlinesToShow =
     deadlineTab === "active"
@@ -288,7 +290,10 @@ export function StudentDashboardPage() {
           </div>
 
           {/* Upcoming Quizzes */}
-          <div className="rounded-2xl border border-line bg-white p-5 sm:p-6 shadow-card hover:shadow-lift transition-shadow flex flex-col justify-between">
+          <div
+            onClick={() => navigate("/student/quizzes")}
+            className="rounded-2xl border border-line bg-white p-5 sm:p-6 shadow-card hover:shadow-lift transition-shadow flex flex-col justify-between cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted">
                 Upcoming Quizzes
@@ -300,10 +305,10 @@ export function StudentDashboardPage() {
 
             <div className="mt-4 flex items-baseline justify-between gap-2">
               <span className="font-display text-3xl font-extrabold text-ink">
-                —
+                {String(upcomingQuizzes.length).padStart(2, "0")}
               </span>
               <span className="text-sm font-medium text-muted">
-                Not available
+                {upcomingQuizzes.length === 1 ? "1 Pending" : `${upcomingQuizzes.length} Pending`}
               </span>
             </div>
 
@@ -622,29 +627,29 @@ export function StudentDashboardPage() {
 
             {upcomingQuizzes.length === 0 ? (
               <p className="rounded-xl bg-canvas p-4 text-xs text-muted">
-                Quiz data is not available yet.
+                No quizzes currently pending completion.
               </p>
             ) : (
               <div className="flex flex-col gap-3">
-                {upcomingQuizzes.slice(0, 2).map((quiz) => (
+                {upcomingQuizzes.slice(0, 3).map((quiz) => (
                   <div
                     key={quiz.id}
                     className="p-3 rounded-xl bg-canvas border border-line/60 flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0">
-                      <p className="font-semibold text-xs text-ink">
+                      <p className="font-semibold text-xs text-ink truncate">
                         {quiz.courseCode}: {quiz.title}
                       </p>
                       <p className="text-[11px] text-muted">
-                        {quiz.durationMinutes} mins
+                        {quiz.durationMinutes} mins • {quiz.totalMarks} marks
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() =>
-                        navigate(`/student/quizzes/${quiz.id}`)
+                        navigate(`/student/quizzes/${quiz.id}/attempt`)
                       }
-                      className="px-3 py-1.5 rounded-lg bg-navy text-white text-xs font-semibold"
+                      className="px-3 py-1.5 rounded-lg bg-orange text-white text-xs font-semibold shrink-0 hover:bg-orange/90 transition cursor-pointer"
                     >
                       Start
                     </button>

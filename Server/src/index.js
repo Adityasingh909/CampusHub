@@ -11,6 +11,7 @@ const profileroute = require("./routes/profile.routes");
 const announcementroute  = require("./routes/announcement.route");
 const uploadroute = require("./routes/privateFile.route")
 const privateFolderRoutes = require("./routes/privateFolder.route")
+const quizRoutes = require("./routes/quiz.routes")
 dotenv.config();
 const PORT = process.env.PORT || 4000;
 
@@ -27,6 +28,7 @@ app.use("/api/profile",profileroute);
 app.use("/api",announcementroute);
 app.use("/api/private-files",uploadroute);
 app.use("/api/private-folders", privateFolderRoutes);
+app.use("/api/quizzes", quizRoutes);
 
 app.listen(PORT,(req,res)=>{
     console.log(`server is running at ${PORT}`);

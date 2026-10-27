@@ -15,6 +15,8 @@ import { TeacherDashboardPage } from "../features/dashboard/TeacherDashboardPage
 import { TeacherSubmissionsPage } from "../features/submissions/TeacherSubmissionsPage";
 import { QuizAttemptPage } from "../features/quizzes/QuizAttemptPage";
 import { QuizzesPage } from "../features/quizzes/QuizzesPage";
+import { QuizResultPage } from "../features/quizzes/QuizResultPage";
+import { TeacherQuizzesPage } from "../features/quizzes/TeacherQuizzesPage";
 import { StudentProfilePage } from "../features/profile/StudentProfilePage";
 import { TeacherProfilePage } from "../features/profile/TeacherProfilePage";
 import { PrivateUploadsPage } from "../features/uploads/PrivateUploadsPage";
@@ -44,7 +46,13 @@ export function AppRouter() {
           element={<AssignmentDetailPage />}
         />
         <Route path="/student/quizzes" element={<QuizzesPage />} />
+        <Route path="/student/quizzes/history" element={<QuizzesPage />} />
         <Route path="/student/quizzes/:quizId" element={<QuizAttemptPage />} />
+        <Route path="/student/quizzes/:quizId/attempt" element={<QuizAttemptPage />} />
+        <Route
+          path="/student/quizzes/attempts/:attemptId/result"
+          element={<QuizResultPage />}
+        />
         <Route path="/student/uploads" element={<PrivateUploadsPage />} />
         <Route path="/student/profile" element={<StudentProfilePage />} />
         <Route
@@ -82,15 +90,9 @@ export function AppRouter() {
           path="/teacher/submissions/:submissionId"
           element={<TeacherSubmissionsPage />}
         />
-        <Route
-          path="/teacher/quizzes"
-          element={
-            <PlaceholderPage
-              title="Quiz management"
-              description="Quiz results overview will be implemented in Phase 7."
-            />
-          }
-        />
+        <Route path="/teacher/quizzes" element={<TeacherQuizzesPage />} />
+        <Route path="/teacher/quizzes/create" element={<TeacherQuizzesPage />} />
+        <Route path="/teacher/quizzes/:quizId/edit" element={<TeacherQuizzesPage />} />
         <Route
           path="/teacher/uploads"
           element={<Navigate to="/teacher/dashboard" replace />}

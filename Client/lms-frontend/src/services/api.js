@@ -134,7 +134,11 @@ export const api = () => {
       }
 
       if (!response.ok) {
-        throw new Error(result.message || `Request failed with status ${response.status}`);
+        const err = new Error(result.message || `Request failed with status ${response.status}`);
+        err.status = response.status;
+        err.data = result;
+        err.attemptId = result?.attemptId;
+        throw err;
       }
 
       return result;
