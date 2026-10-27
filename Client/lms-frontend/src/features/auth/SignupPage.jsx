@@ -59,16 +59,17 @@ async function handleSubmit(event) {
   setError("");
 
   try {
-    await api().post("/auth/register", {
+    const response = await api().post("/auth/register", {
       name: form.name.trim(),
       email: form.email.trim().toLowerCase(),
       password: form.password,
     });
 
-    navigate("/verify-otp", {
+    navigate("/login", {
+      replace: true,
       state: {
         email: form.email.trim().toLowerCase(),
-        name: form.name.trim(),
+        message: response?.message || "Account created successfully! Please sign in.",
       },
     });
   } catch (err) {
@@ -152,11 +153,11 @@ async function handleSubmit(event) {
           {loading ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              <span>Sending OTP...</span>
+              <span>Creating account...</span>
             </>
           ) : (
             <>
-              <span>Continue to verification</span>
+              <span>Create account</span>
               <ArrowRight size={16} />
             </>
           )}

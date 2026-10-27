@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
@@ -11,16 +11,22 @@ import { api } from "../../services/api";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState(location.state?.message || "");
   const [remember, setRemember] = useState(true);
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({
+    email: location.state?.email || "",
+    password: "",
+  });
 
   function handleChange(event) {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     setError("");
+    setSuccessMessage("");
   }
 
   // function handleSubmit(event) {
@@ -112,6 +118,11 @@ export function LoginPage() {
       <AuthTabs />
 
       <form onSubmit={handleSubmit} noValidate className="mt-7 space-y-5">
+        {successMessage ? (
+          <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6 text-emerald-800">
+            {successMessage}
+          </p>
+        ) : null}
         <Input
           id="email"
           name="email"

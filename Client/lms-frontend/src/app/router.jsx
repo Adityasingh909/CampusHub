@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
 import { ForgotPasswordPage } from "../features/auth/ForgotPasswordPage";
 import { LoginPage } from "../features/auth/LoginPage";
-import { OtpPage } from "../features/auth/OtpPage";
 import { SignupPage } from "../features/auth/SignupPage";
 import { AssignmentDetailPage } from "../features/assignments/AssignmentDetailPage";
 import { AssignmentsPage } from "../features/assignments/AssignmentsPage";
@@ -30,7 +29,7 @@ export function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/verify-otp" element={<OtpPage />} />
+      <Route path="/verify-otp" element={<Navigate to="/login" replace />} />
 
       <Route element={
         <ProtectedRoute role="student">
