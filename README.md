@@ -299,21 +299,6 @@ npm run dev
 
 Open `http://localhost:5173` in your browser to explore CampusHub!
 
----
-
-## 📖 Comprehensive Documentation & Revision Handbook
-
-For an in-depth architectural breakdown, request lifecycles, debugging case studies, and senior interview prep:
-
-- **[CampusHub Personal Project Handbook (PDF)](docs/CampusHub_Personal_Project_Handbook.pdf):** 34-page publication-quality revision guide.
-- **[CampusHub Personal Project Handbook (Markdown)](docs/CampusHub_Personal_Project_Handbook.md):** Full source documentation covering all 13 engineering chapters.
-
-To recompile the PDF at any time:
-```bash
-node docs/build_handbook.js
-```
-
----
 
 ## 👨‍💻 Author
 
