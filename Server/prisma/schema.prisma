@@ -32,20 +32,6 @@ model User {
   quizAttempts QuizAttempt[]
 }
 
-model PendingRegistration {
-  id                    Int                    @id @default(autoincrement())
-  name                  String
-  email                 String                 @unique
-  passwordHash          String
-  otpHash               String
-  expiresAt             DateTime
-  attempts              Int                    @default(0)
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  enrollments           Enrollment[]
-  AssignmentSubmissions AssignmentSubmission[]
-}
-
 model Course {
   id          Int    @id @default(autoincrement())
   code        String @unique
@@ -88,8 +74,6 @@ model Enrollment {
 
   student               User                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
   course                Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  pendingRegistration   PendingRegistration? @relation(fields: [pendingRegistrationId], references: [id])
-  pendingRegistrationId Int?
 
   @@unique([studentId, courseId])
   @@index([studentId])
@@ -129,8 +113,6 @@ model AssignmentSubmission {
 
   assignment            Assignment           @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   student               User                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  pendingRegistration   PendingRegistration? @relation(fields: [pendingRegistrationId], references: [id])
-  pendingRegistrationId Int?
 
   @@unique([assignmentId, studentId])
   @@index([status])

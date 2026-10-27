@@ -21,9 +21,7 @@
     "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.11.2",
-    "multer": "^2.5.0",
-    "nodemailer": "^10.1.7",
-    "resend": "^6.35.0"
+    "multer": "^2.5.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
